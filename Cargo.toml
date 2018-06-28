@@ -1,5 +1,6 @@
 [package]
 name = "strobe-rs"
+description = "An implementation of the Strobe protocol framework in pure Rust"
 version = "0.1.0"
 authors = ["Michael Rosenberg <micro@fastmail.com>"]
 license = "MIT/Apache-2.0"
