@@ -1,4 +1,5 @@
-# strobe-rs
+strobe-rs
+=========
 
 [![Build Status](https://travis-ci.org/doomrobo/strobe-rs.svg?branch=master)](https://travis-ci.org/doomrobo/strobe-rs)
 [![Version](http://meritbadge.herokuapp.com/strobe-rs)](https://crates.io/crates/strobe-rs)
@@ -11,7 +12,8 @@ is the largest possible block size, so big deal.
 
 [strobe]: https://strobe.sourceforge.io/
 
-# Example
+Example
+-------
 
 A simple program that encrypts and decrypts a message:
 
@@ -34,12 +36,24 @@ fn main() {
 }
 ```
 
-# TODO
+TODO
+----
 
 * Use `subtle` for MAC verification
 * Put more asserts in the code like the Python implementation does. Not sure if this is a great idea
   though
 
-# Warning
+License
+-------
+
+Licensed under either of
+
+ * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
+ * MIT license ([LICENSE-MIT](LICENSE-MIT))
+
+at your option.
+
+Warning
+-------
 
 This code has not been audited in any sense of the word. Use at your own discretion.
