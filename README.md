@@ -26,11 +26,11 @@ fn main() {
     let mut rx = Strobe::new(b"correctnesstest".to_vec(), SecParam::B256);
     let mut tx = Strobe::new(b"correctnesstest".to_vec(), SecParam::B256);
 
-    rx.key(b"the-combination-on-my-luggage".to_vec(), None, false).unwrap();
-    tx.key(b"the-combination-on-my-luggage".to_vec(), None, false).unwrap();
+    rx.key(b"the-combination-on-my-luggage".to_vec(), None, false);
+    tx.key(b"the-combination-on-my-luggage".to_vec(), None, false);
 
-    let ciphertext = rx.send_enc(orig_msg.clone(), None, false).unwrap();
-    let decrypted_msg = tx.recv_enc(ciphertext, None, false).unwrap();
+    let ciphertext = rx.send_enc(orig_msg.clone(), None, false);
+    let decrypted_msg = tx.recv_enc(ciphertext, None, false);
 
     assert_eq!(orig_msg, decrypted_msg);
 }
@@ -40,6 +40,8 @@ TODO
 ----
 
 * Use `subtle` for MAC verification
+* Add benchmarks
+* Include test vectors from [StrobeGo](https://github.com/mimoo/StrobeGo)
 * Put more asserts in the code like the Python implementation does. Not sure if this is a great idea
   though
 
