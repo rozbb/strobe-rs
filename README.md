@@ -2,7 +2,7 @@ strobe-rs
 =========
 
 [![Build Status](https://travis-ci.org/doomrobo/strobe-rs.svg?branch=master)](https://travis-ci.org/doomrobo/strobe-rs)
-[![Version](http://meritbadge.herokuapp.com/strobe-rs)](https://crates.io/crates/strobe-rs)
+[![Version](https://img.shields.io/crates/v/strobe-rs.svg)](https://crates.io/crates/strobe-rs)
 [![Docs](https://docs.rs/strobe-rs/badge.svg)](https://docs.rs/strobe-rs)
 
 This is a relatively barebones implementation of the [Strobe protocol framework][strobe] in pure
