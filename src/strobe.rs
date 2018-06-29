@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use byteorder::{LittleEndian, ReadBytesExt};
-use keccak::{self, keccakf, state_bytes, state_bytes_mut};
+use keccak::{self, keccakf, state_bytes_mut};
 
 use std::io;
 
@@ -53,6 +53,45 @@ pub struct AuthError;
 /// is a great resource.
 ///
 /// [spec]: https://strobe.sourceforge.io/specs/
+///
+/// Description of method input
+/// ---------------------------
+/// Every operation exposed by `Strobe` takes the same set of inputs. Some inputs are not
+/// meaningful in some contexts. Again, see the specification for more info. The arguments are
+///
+/// * `data` - The input data to the operation.
+/// * `metadata` - An optional tuple containing meta-operation flags and metadata info. See spec
+///                for more info.
+/// * `more` - Whether or not you want to add more input to the previous operation. For example:
+///
+/// ```rust
+/// # extern crate strobe_rs;
+/// # use strobe_rs::{SecParam, Strobe};
+/// # fn main() {
+/// # let mut s = Strobe::new(b"example-of-more".to_vec(), SecParam::B128);
+/// s.ad(b"hello world".to_vec(), None, false);
+/// # }
+/// ```
+/// is equivalent to
+/// ```rust
+/// # extern crate strobe_rs;
+/// # use strobe_rs::{SecParam, Strobe};
+/// # fn main() {
+/// # let mut s = Strobe::new(b"example-of-more".to_vec(), SecParam::B128);
+/// s.ad(b"hello ".to_vec(), None, false);
+/// s.ad(b"world".to_vec(), None, true);
+/// # }
+/// ```
+///
+/// Description of method output
+/// ----------------------------
+/// Some methods will always give output. The ones that return an `Option<Vec<u8>>` or a
+/// `Result<Option<Vec<u8>>, AuthError>` will return a `Vec` if and only if metadata is supplied in
+/// the input.
+///
+/// NB: The output of `recv_mac` is a `Result`. The method will attempt to authenticate the current
+/// state. On failure, it will return an `AuthError`. It behooves the user of this library to check
+/// this return value and overreact on error.
 #[derive(Clone)]
 pub struct Strobe {
     /// Internal Keccak state
@@ -68,6 +107,7 @@ pub struct Strobe {
     is_receiver: Option<bool>,
 }
 
+// Most methods return some bytes and cannot error. This macro is for those methods.
 macro_rules! def_op {
     ($name:ident, $flags:expr) => (
         pub fn $name(
@@ -75,10 +115,26 @@ macro_rules! def_op {
             data: Vec<u8>,
             metadata: Option<(OpFlags, Vec<u8>)>,
             more: bool,
-        ) -> Result<Vec<u8>, AuthError> {
+        ) -> Vec<u8> {
 
             let flags = $flags;
-            self.operate(flags, data, metadata, more)
+            self.operate(flags, data, metadata, more).unwrap().unwrap()
+        }
+    )
+}
+
+// Some methods will only return bytes if metadata was given. This macro is for those methods.
+macro_rules! def_op_opt_return {
+    ($name:ident, $flags:expr) => (
+        pub fn $name(
+            &mut self,
+            data: Vec<u8>,
+            metadata: Option<(OpFlags, Vec<u8>)>,
+            more: bool,
+        ) -> Option<Vec<u8>> {
+
+            let flags = $flags;
+            self.operate(flags, data, metadata, more).unwrap()
         }
     )
 }
@@ -137,7 +193,7 @@ impl Strobe {
     }
 
     fn run_f(&mut self) {
-        // Use same scoping trick here
+        // Use same scoping trick here as in duplex
         {
             let st = state_bytes_mut(&mut self.st);
             st[self.pos] ^= self.pos_begin as u8;
@@ -151,8 +207,6 @@ impl Strobe {
     }
 
     fn duplex(&mut self, data: &mut [u8], seq: CombineSeq, force_f: bool) {
-        println!("Changing state with data of {:x?}", data);
-        println!("pre-xor == {:x?}", &state_bytes(&self.st)[..]);
         for b in data {
             // We need to separately scope st because we can't have two &muts pointing to the same
             // thing in scope at the same time
@@ -172,7 +226,6 @@ impl Strobe {
                 self.run_f();
             }
         }
-        println!("post-xor == {:x?}", &state_bytes(&self.st)[..]);
 
         if force_f && self.pos != 0 {
             self.run_f();
@@ -196,13 +249,8 @@ impl Strobe {
         self.pos_begin = self.pos + 1;
 
         // Mix in the position and flags
-        println!("BeginOp got flags {:?}", flags);
         let to_mix = &mut [old_pos_begin as u8, flags.bits()];
         let force_f = flags.contains(OpFlags::C) || flags.contains(OpFlags::K);
-        println!(
-            "sending {:x?} to duplex from begin_op. force_f == {}",
-            to_mix, force_f
-        );
         self.duplex(&mut to_mix[..], CombineSeq::Never, force_f);
     }
 
@@ -213,24 +261,22 @@ impl Strobe {
         mut data: Vec<u8>,
         metadata: Option<(OpFlags, Vec<u8>)>,
         more: bool,
-    ) -> Result<Vec<u8>, AuthError> {
-        println!("Operate got flags {:?}", flags);
+    ) -> Result<Option<Vec<u8>>, AuthError> {
         assert_eq!(
             flags.contains(OpFlags::K),
             false,
             "Op flag K not implemented"
         );
 
-        let mut meta_out = None;
+        let mut meta_out: Option<Vec<u8>> = None;
         if !more {
             if let Some((mut md_flags, md)) = metadata {
                 // Metadata must have the M flag set
                 md_flags.set(OpFlags::M, true);
-                meta_out = Some(self.operate(md_flags, md, None, more)?);
+                meta_out = self.operate(md_flags, md, None, more)?;
             }
             self.begin_op(flags);
         }
-        println!("after first begin_op: {:x?}", &state_bytes(&self.st)[..]);
 
         // TODO?: Assert that input is empty under some flag conditions
         let seq = if flags.contains(OpFlags::C)
@@ -244,7 +290,6 @@ impl Strobe {
             CombineSeq::Never
         };
 
-        println!("seq == {:?}", seq);
         self.duplex(data.as_mut_slice(), seq, false);
         // Rename for clarity
         let processed = data;
@@ -253,18 +298,18 @@ impl Strobe {
         if flags.contains(OpFlags::I) && flags.contains(OpFlags::A) {
             if let Some(mut m) = meta_out {
                 m.extend(processed);
-                Ok(m)
+                Ok(Some(m))
             } else {
-                Ok(processed)
+                Ok(Some(processed))
             }
         }
         // This operation outputs to transport. This case does the same thing as above.
         else if flags.contains(OpFlags::T) && !flags.contains(OpFlags::I) {
             if let Some(mut m) = meta_out {
                 m.extend(processed);
-                Ok(m)
+                Ok(Some(m))
             } else {
-                Ok(processed)
+                Ok(Some(processed))
             }
         }
         // TODO: Use subtle for MAC check
@@ -280,25 +325,38 @@ impl Strobe {
             if failures != 0 {
                 Err(AuthError)
             } else {
-                Ok(meta_out.unwrap_or(Vec::new()))
+                Ok(meta_out)
             }
         }
         // Output metadata if any was given
         else {
-            Ok(meta_out.unwrap_or(Vec::new()))
+            Ok(meta_out)
         }
     }
 
-    def_op!(ad, OpFlags::A);
-    def_op!(key, OpFlags::A | OpFlags::C);
-    def_op!(prf, OpFlags::I | OpFlags::A | OpFlags::C);
+    // This is separately defined because it's the only method that can return a `Result`
+    pub fn recv_mac(
+        &mut self,
+        data: Vec<u8>,
+        metadata: Option<(OpFlags, Vec<u8>)>,
+        more: bool,
+    ) -> Result<Option<Vec<u8>>, AuthError> {
+        let flags = OpFlags::I | OpFlags::C | OpFlags::T;
+        self.operate(flags, data, metadata, more)
+    }
+
+    // These operations always return something
+    def_op!(prf,      OpFlags::I | OpFlags::A | OpFlags::C);
     def_op!(send_clr, OpFlags::A | OpFlags::T);
     def_op!(recv_clr, OpFlags::I | OpFlags::A | OpFlags::T);
     def_op!(send_enc, OpFlags::A | OpFlags::C | OpFlags::T);
     def_op!(recv_enc, OpFlags::I | OpFlags::A | OpFlags::C | OpFlags::T);
     def_op!(send_mac, OpFlags::C | OpFlags::T);
-    def_op!(recv_mac, OpFlags::I | OpFlags::C | OpFlags::T);
-    def_op!(ratchet, OpFlags::C);
+
+    // These operations will only return something if metadata is given
+    def_op_opt_return!(ad,      OpFlags::A);
+    def_op_opt_return!(ratchet, OpFlags::C);
+    def_op_opt_return!(key,     OpFlags::A | OpFlags::C);
 }
 
 /*
@@ -309,9 +367,8 @@ impl Strobe {
      4. Run `python2 <FILE>`
 */
 #[cfg(test)]
-#[allow(unused_must_use)]
 mod test {
-    use keccak;
+    use keccak::{self, state_bytes};
     use strobe::*;
 
     /*
@@ -439,7 +496,7 @@ mod test {
         I,A,C,T,M,K = 1<<0, 1<<1, 1<<2, 1<<3, 1<<4, 1<<5
         s = Strobe("metadatatest", security=256)
 
-        m = s.key("key", meta_flags=A|M, metadata="meta1")
+        m = s.key("key", meta_flags=A|T|M, metadata="meta1")
         m += s.prf(10, meta_flags=I|C|M, metadata=10)
         m += s.send_enc("pt", meta_flags=A|T|M, metadata="meta3")
 
@@ -451,47 +508,42 @@ mod test {
         let mut s = Strobe::new(b"metadatatest".to_vec(), SecParam::B256);
 
         // Accumulate metadata over 3 operations
-        let mut md =
-            s.key(
+        let mut md = s.key(
                 b"key".to_vec(),
-                Some((OpFlags::A | OpFlags::M, b"meta1".to_vec())),
+                Some((OpFlags::A | OpFlags::T | OpFlags::M, b"meta1".to_vec())),
                 false,
-            ).unwrap();
-        md.extend(
-            s.prf(
-                vec![0; 10],
-                Some((OpFlags::I | OpFlags::C | OpFlags::M, vec![0; 10])),
-                false,
-            ).unwrap(),
-        );
-        md.extend(
-            s.send_enc(
-                b"pt".to_vec(),
-                Some((OpFlags::A | OpFlags::T | OpFlags::M, b"meta3".to_vec())),
-                false,
-            ).unwrap(),
-        );
+        ).unwrap();
+        md.extend(s.prf(
+            vec![0; 10],
+            Some((OpFlags::I | OpFlags::C | OpFlags::M, vec![0; 10])),
+            false,
+        ));
+        md.extend(s.send_enc(
+            b"pt".to_vec(),
+            Some((OpFlags::A | OpFlags::T | OpFlags::M, b"meta3".to_vec())),
+            false,
+        ));
 
         let expected_md = [
-            0xae, 0x23, 0xbd, 0x41, 0x8f, 0x92, 0xe0, 0x7e, 0xdb, 0x62, 0x6d, 0x65, 0x74, 0x61,
-            0x33, 0x06, 0x8d,
+            0x6d, 0x65, 0x74, 0x61, 0x31, 0x54, 0x27, 0xd1, 0x29, 0x82, 0xad, 0xf6, 0x70, 0x0a,
+            0xf9, 0x6d, 0x65, 0x74, 0x61, 0x33, 0x32, 0x0e,
         ];
         let expected_st = [
-            0x06, 0x8d, 0x17, 0x99, 0x5e, 0x22, 0xd2, 0x38, 0x5e, 0x77, 0x35, 0x8f, 0x55, 0x30,
-            0xe5, 0x4f, 0x85, 0xe3, 0x7b, 0x6e, 0x29, 0x80, 0x44, 0x05, 0x0d, 0xf9, 0xda, 0x6b,
-            0x65, 0x36, 0x55, 0xfe, 0xbd, 0x1d, 0xc4, 0x84, 0x75, 0x02, 0xce, 0x61, 0x63, 0x2d,
-            0xce, 0x00, 0xdd, 0xa8, 0xac, 0x16, 0x9f, 0xf5, 0x42, 0xbb, 0x69, 0xaf, 0x67, 0x00,
-            0x21, 0x9a, 0x48, 0xf4, 0xa3, 0xc0, 0x69, 0xff, 0xf7, 0xc5, 0xed, 0x19, 0x20, 0xfd,
-            0xe9, 0xbf, 0x97, 0x75, 0x96, 0x7a, 0x68, 0xf6, 0x10, 0x86, 0xc7, 0xa8, 0x7a, 0x63,
-            0x82, 0xcd, 0xf4, 0xec, 0x6f, 0xbe, 0x8b, 0x9f, 0xca, 0x8e, 0xf7, 0x7b, 0xaf, 0xda,
-            0x1c, 0xdd, 0xc6, 0x5b, 0x1e, 0xb7, 0x53, 0x1a, 0x45, 0x66, 0x57, 0xcc, 0x94, 0x17,
-            0xf4, 0xe3, 0xd6, 0x1e, 0xfa, 0xe9, 0xf8, 0xc6, 0x5e, 0x1b, 0x1d, 0x97, 0x83, 0xaa,
-            0x5f, 0xd0, 0x8b, 0xd0, 0x55, 0xb3, 0xc4, 0x9d, 0xb6, 0xfa, 0xd1, 0x2c, 0xb4, 0x56,
-            0xc0, 0x77, 0x37, 0x58, 0x62, 0x3f, 0xa1, 0x0a, 0x30, 0x22, 0x25, 0x99, 0xde, 0xe2,
-            0xe7, 0x9f, 0xf3, 0x85, 0x1c, 0xa9, 0xdd, 0x2c, 0x63, 0x2a, 0xc9, 0x5a, 0xf7, 0x64,
-            0x56, 0x5e, 0xaa, 0x5a, 0x53, 0x07, 0x7b, 0x1e, 0x08, 0x36, 0x2e, 0x8c, 0x2e, 0x3a,
-            0x56, 0xaa, 0xf3, 0x93, 0xbb, 0xe8, 0x02, 0x4a, 0xb0, 0x5a, 0x0a, 0x99, 0xea, 0x84,
-            0xc6, 0xfa, 0x4d, 0x6c,
+            0x32, 0x0e, 0x1a, 0xe8, 0xf6, 0x6e, 0x0a, 0x87, 0x2a, 0xea, 0xdf, 0x4f, 0x85, 0x26,
+            0x6a, 0x6c, 0x72, 0xc9, 0xb1, 0x78, 0xfd, 0xfc, 0x11, 0x89, 0x8a, 0x52, 0x34, 0xa0,
+            0x95, 0x4f, 0x1e, 0xb4, 0x9b, 0xc6, 0xb2, 0xf2, 0x16, 0xce, 0xff, 0xdf, 0xb2, 0x36,
+            0x78, 0x23, 0xd5, 0xf7, 0x67, 0xc6, 0xe2, 0x2c, 0xbc, 0xd9, 0x63, 0x3e, 0x8d, 0xa4,
+            0x3e, 0x05, 0x93, 0x30, 0x88, 0xe0, 0x70, 0x99, 0x0b, 0x13, 0x07, 0x23, 0x05, 0x4a,
+            0x2b, 0x24, 0x94, 0xdb, 0x0f, 0xca, 0xe8, 0xd7, 0xf3, 0x96, 0xf0, 0xe6, 0xfd, 0x42,
+            0x67, 0x30, 0xb8, 0xc9, 0x09, 0x47, 0x74, 0x9a, 0x1b, 0xc3, 0x52, 0x21, 0x97, 0x38,
+            0x24, 0x25, 0xda, 0xa3, 0x41, 0x5a, 0x93, 0x25, 0xc7, 0x6b, 0xba, 0x8a, 0xdc, 0x79,
+            0x39, 0x11, 0xc8, 0xf3, 0x40, 0xd9, 0x95, 0x0f, 0x72, 0xcf, 0xb2, 0xef, 0xcb, 0x58,
+            0x34, 0xe0, 0xac, 0xad, 0xbb, 0x60, 0xa8, 0x56, 0x48, 0x5c, 0x37, 0xbb, 0x9b, 0xa5,
+            0x19, 0xa5, 0xd9, 0x3f, 0xf8, 0x4b, 0x0e, 0x90, 0x8b, 0x92, 0xc2, 0x1c, 0x81, 0x27,
+            0xd2, 0x79, 0x9f, 0x04, 0x3f, 0xe9, 0xb9, 0xe7, 0xe1, 0xed, 0x43, 0x64, 0x2d, 0xe2,
+            0xc0, 0x08, 0x13, 0x17, 0x27, 0x8e, 0xaa, 0xa8, 0x17, 0xe0, 0xa4, 0x48, 0x06, 0x61,
+            0x1b, 0x5e, 0x31, 0x6e, 0xd4, 0x4d, 0x8d, 0xaa, 0x5b, 0x64, 0xae, 0xf9, 0x22, 0x57,
+            0x50, 0x19, 0x52, 0x79,
         ];
 
         assert_eq!(&*md, &expected_md[..]);
@@ -531,11 +583,11 @@ mod test {
         let mut rx = Strobe::new(b"correctnesstest".to_vec(), SecParam::B256);
         let mut tx = Strobe::new(b"correctnesstest".to_vec(), SecParam::B256);
 
-        rx.key(b"the-combination-on-my-luggage".to_vec(), None, false).unwrap();
-        tx.key(b"the-combination-on-my-luggage".to_vec(), None, false).unwrap();
+        rx.key(b"the-combination-on-my-luggage".to_vec(), None, false);
+        tx.key(b"the-combination-on-my-luggage".to_vec(), None, false);
 
-        let ciphertext = rx.send_enc(orig_msg.clone(), None, false).unwrap();
-        let decrypted_msg = tx.recv_enc(ciphertext, None, false).unwrap();
+        let ciphertext = rx.send_enc(orig_msg.clone(), None, false);
+        let decrypted_msg = tx.recv_enc(ciphertext, None, false);
 
         assert_eq!(orig_msg, decrypted_msg);
     }

@@ -1,14 +1,18 @@
-/// Re-export the keccakf[1600] that we pull in
+/// Re-export the keccak-f\[1600\] that we pull in
 pub use tiny_keccak::keccakf as keccakf;
 
 /// keccak block size in 64-bit words. This is the N parameter in the STROBE spec
 pub const BLOCK_SIZE: usize = 25;
 
-pub fn state_bytes(s: &[u64; BLOCK_SIZE]) -> &[u8; BLOCK_SIZE*8] {
+#[inline(always)]
+pub fn state_bytes_mut(s: &mut [u64; BLOCK_SIZE]) -> &mut [u8; BLOCK_SIZE*8] {
     unsafe { ::std::mem::transmute(s) }
 }
 
-pub fn state_bytes_mut(s: &mut [u64; BLOCK_SIZE]) -> &mut [u8; BLOCK_SIZE*8] {
+// We only really use this in tests
+#[cfg(test)]
+#[inline(always)]
+pub fn state_bytes(s: &[u64; BLOCK_SIZE]) -> &[u8; BLOCK_SIZE*8] {
     unsafe { ::std::mem::transmute(s) }
 }
 
