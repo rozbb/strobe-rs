@@ -10,4 +10,5 @@ keywords = ["crypto", "cryptography", "strobe", "protocol", "framework"]
 bitflags = "1.0"
 byteorder = "1.2"
 lazy_static = "1.0"
+subtle = "0.6"
 tiny-keccak = "1.0"

@@ -1,7 +1,6 @@
-#![allow(non_snake_case)]
-
 use byteorder::{LittleEndian, ReadBytesExt};
 use keccak::{self, keccakf, state_bytes_mut};
+use subtle::{self, ConstantTimeEq};
 
 use std::io;
 
@@ -331,17 +330,18 @@ impl Strobe {
                 Ok(Some(processed))
             }
         }
-        // TODO: Use subtle for MAC check
         // This operation is recv_mac
         else if flags.contains(OpFlags::I)
             && flags.contains(OpFlags::T)
             && !flags.contains(OpFlags::A)
         {
-            let mut failures = 0u8;
+            // Constant-time MAC check. This accumulates the truth values of byte == 0
+            let mut all_zero = subtle::Choice::from(1u8);
             for b in processed {
-                failures |= b;
+                all_zero = all_zero & b.ct_eq(&0u8);
             }
-            if failures != 0 {
+
+            if all_zero.unwrap_u8() != 1 {
                 Err(AuthError)
             } else {
                 Ok(meta_out)
@@ -650,17 +650,40 @@ mod test {
 
     // Test that decrypt(encrypt(msg)) == msg
     #[test]
-    fn test_correctness() {
+    fn test_enc_correctness() {
         let orig_msg = b"Hello there".to_vec();
-        let mut rx = Strobe::new(b"correctnesstest".to_vec(), SecParam::B256);
-        let mut tx = Strobe::new(b"correctnesstest".to_vec(), SecParam::B256);
+        let mut tx = Strobe::new(b"enccorrectnesstest".to_vec(), SecParam::B256);
+        let mut rx = Strobe::new(b"enccorrectnesstest".to_vec(), SecParam::B256);
 
-        rx.key(b"the-combination-on-my-luggage".to_vec(), None, false);
         tx.key(b"the-combination-on-my-luggage".to_vec(), None, false);
+        rx.key(b"the-combination-on-my-luggage".to_vec(), None, false);
 
-        let ciphertext = rx.send_enc(orig_msg.clone(), None, false);
-        let decrypted_msg = tx.recv_enc(ciphertext, None, false);
+        let ciphertext = tx.send_enc(orig_msg.clone(), None, false);
+        let decrypted_msg = rx.recv_enc(ciphertext, None, false);
 
         assert_eq!(orig_msg, decrypted_msg);
+    }
+
+    #[test]
+    fn test_mac_correctness() {
+        let mut tx = Strobe::new(b"maccorrectnesstest".to_vec(), SecParam::B256);
+        let mut rx = Strobe::new(b"maccorrectnesstest".to_vec(), SecParam::B256);
+
+        // Just do some stuff with the state
+        tx.key(b"secretsauce".to_vec(), None, false);
+        let ct = tx.send_enc(b"attack at dawn".to_vec(), None, false);
+        let mac = tx.send_mac(16, None, false);
+
+        rx.key(b"secretsauce".to_vec(), None, false);
+        rx.recv_enc(ct, None, false);
+
+        // Test that valid MACs are accepted
+        let mut rx_copy = rx.clone();
+        let good_res = rx_copy.recv_mac(mac.clone(), None, false);
+        assert!(good_res.is_ok());
+
+        // Test that invalid MACs are rejected
+        let bad_res = rx.recv_mac([mac, vec![0;1]].concat(), None, false);
+        assert!(bad_res.is_err());
     }
 }
