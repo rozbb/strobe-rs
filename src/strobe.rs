@@ -56,7 +56,7 @@ pub struct AuthError;
 ///
 /// Description of method input
 /// ---------------------------
-/// Every operation exposed by `Strobe` takes the same set of inputs. Some inputs are not
+/// Most operations exposed by `Strobe` take the same set of inputs. Some inputs are not
 /// meaningful in some contexts. Again, see the specification for more info. The arguments are
 ///
 /// * `data` - The input data to the operation.
@@ -83,23 +83,16 @@ pub struct AuthError;
 /// # }
 /// ```
 ///
-/// Description of method output
-/// ----------------------------
-/// Some methods will always give output. The ones that return an `Option<Vec<u8>>` or a
-/// `Result<Option<Vec<u8>>, AuthError>` will return a `Vec` if and only if metadata is supplied in
-/// the input.
-///
-/// NB: The output of `recv_mac` is a `Result`. The method will attempt to authenticate the current
-/// state. On failure, it will return an `AuthError`. It behooves the user of this library to check
-/// this return value and overreact on error.
+/// Some methods take a `usize` argument instead of bytes. These functions are individually
+/// commented below.
 #[derive(Clone)]
 pub struct Strobe {
     /// Internal Keccak state
     st: [u64; keccak::BLOCK_SIZE],
-    /// Internal state
-    sec: SecParam,
-    /// This is the `R` parameter in STROBE
-    rate: usize,
+    /// Security parameter (128 or 256)
+    pub sec: SecParam,
+    /// This is the `R` parameter in the Strobe spec
+    pub rate: usize,
     /// Indices into `st`
     pos: usize,
     pos_begin: usize,
@@ -109,7 +102,8 @@ pub struct Strobe {
 
 // Most methods return some bytes and cannot error. This macro is for those methods.
 macro_rules! def_op {
-    ($name:ident, $flags:expr) => (
+    ($name:ident, $flags:expr, $doc_str:expr) => (
+        #[doc = $doc_str]
         pub fn $name(
             &mut self,
             data: Vec<u8>,
@@ -123,9 +117,34 @@ macro_rules! def_op {
     )
 }
 
+// Some methods only take an integer as an input (representing how long the output should be). This
+// macro is for those methods.
+macro_rules! def_op_int_input {
+    ($name:ident, $flags:expr, $doc_str:expr) => (
+        #[doc = $doc_str]
+        ///
+        /// Takes a `usize` argument instead of bytes. This specifies the number of bytes the user
+        /// wants as output.
+        pub fn $name(
+            &mut self,
+            output_len: usize,
+            metadata: Option<(OpFlags, Vec<u8>)>,
+            more: bool,
+        ) -> Vec<u8> {
+
+            let flags = $flags;
+            self.operate(flags, vec![0;output_len], metadata, more).unwrap().unwrap()
+        }
+    )
+}
+
 // Some methods will only return bytes if metadata was given. This macro is for those methods.
 macro_rules! def_op_opt_return {
-    ($name:ident, $flags:expr) => (
+    ($name:ident, $flags:expr, $doc_str:expr) => (
+        #[doc = $doc_str]
+        ///
+        /// Takes input as normal. This will return a value if and only if metadata is supplied in
+        /// the input.
         pub fn $name(
             &mut self,
             data: Vec<u8>,
@@ -335,6 +354,9 @@ impl Strobe {
     }
 
     // This is separately defined because it's the only method that can return a `Result`
+    /// Attempts to authenticate the current state against the given MAC. On failure, it returns an
+    /// `AuthError`. It behooves the user of this library to check this return value and overreact
+    /// on error.
     pub fn recv_mac(
         &mut self,
         data: Vec<u8>,
@@ -345,18 +367,67 @@ impl Strobe {
         self.operate(flags, data, metadata, more)
     }
 
-    // These operations always return something
-    def_op!(prf,      OpFlags::I | OpFlags::A | OpFlags::C);
-    def_op!(send_clr, OpFlags::A | OpFlags::T);
-    def_op!(recv_clr, OpFlags::I | OpFlags::A | OpFlags::T);
-    def_op!(send_enc, OpFlags::A | OpFlags::C | OpFlags::T);
-    def_op!(recv_enc, OpFlags::I | OpFlags::A | OpFlags::C | OpFlags::T);
-    def_op!(send_mac, OpFlags::C | OpFlags::T);
+    // This is separately defined because it's the only method that takes an integer and returns an
+    // Option<Vec<u8>>.
+    /// Ratchets the internal state forward in an irreversible way by zeroing bytes.
+    ///
+    /// Takes a `usize` argument specifying the number of bytes of public state to zero. If the
+    /// size exceeds `self.rate`, Keccak-f will be called before more bytes are zeroed.
+    pub fn ratchet(
+        &mut self,
+        bytes_to_zero: usize,
+        metadata: Option<(OpFlags, Vec<u8>)>,
+        more: bool,
+    ) -> Option<Vec<u8>> {
+        let flags = OpFlags::C;
+        self.operate(flags, vec![0; bytes_to_zero], metadata, more)
+            .unwrap()
+    }
 
-    // These operations will only return something if metadata is given
-    def_op_opt_return!(ad,      OpFlags::A);
-    def_op_opt_return!(ratchet, OpFlags::C);
-    def_op_opt_return!(key,     OpFlags::A | OpFlags::C);
+    // These operations always return something
+    def_op!(
+        send_clr,
+        OpFlags::A | OpFlags::T,
+        "Sends a plaintext message."
+    );
+    def_op!(
+        recv_clr,
+        OpFlags::I | OpFlags::A | OpFlags::T,
+        "Receives a plaintext message."
+    );
+    def_op!(
+        send_enc,
+        OpFlags::A | OpFlags::C | OpFlags::T,
+        "Sends an encrypted message."
+    );
+    def_op!(
+        recv_enc,
+        OpFlags::I | OpFlags::A | OpFlags::C | OpFlags::T,
+        "Receives an encrypted message."
+    );
+    // These return something and only take length as inputs
+    def_op_int_input!(
+        send_mac,
+        OpFlags::C | OpFlags::T,
+        "Sends a MAC of the internal state."
+    );
+    def_op_int_input!(
+        prf,
+        OpFlags::I | OpFlags::A | OpFlags::C,
+        "Extracts pseudorandom data as a function of the internal state."
+    );
+
+    // These operations will return something iff metadata is given
+    def_op_opt_return!(
+        ad,
+        OpFlags::A,
+        "Mixes associated data into the internal state."
+    );
+    def_op_opt_return!(
+        key,
+        OpFlags::A | OpFlags::C,
+        "Sets a symmetric cipher key."
+    );
 }
 
 /*
@@ -455,18 +526,18 @@ mod test {
     #[test]
     fn test_seq() {
         let mut s = Strobe::new(b"seqtest".to_vec(), SecParam::B256);
-        s.prf(vec![0; 10], None, false);
+        s.prf(10, None, false);
         s.ad(b"Hello".to_vec(), None, false);
         s.send_enc(b"World".to_vec(), None, false);
         s.send_clr(b"foo".to_vec(), None, false);
-        s.ratchet(vec![0; 32], None, false);
+        s.ratchet(32, None, false);
         s.recv_clr(b"bar".to_vec(), None, false);
         s.recv_enc(b"baz".to_vec(), None, false);
         for i in 0..100 {
             s.send_enc(vec![b'X'; i], None, false);
         }
-        s.prf(vec![0; 123], None, false);
-        s.send_mac(vec![0; 16], None, false);
+        s.prf(123, None, false);
+        s.send_mac(16, None, false);
 
         let final_st = state_bytes(&s.st);
         let expected_st = [
@@ -508,13 +579,14 @@ mod test {
         let mut s = Strobe::new(b"metadatatest".to_vec(), SecParam::B256);
 
         // Accumulate metadata over 3 operations
-        let mut md = s.key(
+        let mut md =
+            s.key(
                 b"key".to_vec(),
                 Some((OpFlags::A | OpFlags::T | OpFlags::M, b"meta1".to_vec())),
                 false,
-        ).unwrap();
+            ).unwrap();
         md.extend(s.prf(
-            vec![0; 10],
+            10,
             Some((OpFlags::I | OpFlags::C | OpFlags::M, vec![0; 10])),
             false,
         ));
@@ -558,7 +630,7 @@ mod test {
             let mut s = Strobe::new(b"streamingtest".to_vec(), SecParam::B256);
             s.ad(b"mynonce".to_vec(), None, false);
             s.recv_enc(b"hello there".to_vec(), None, false);
-            s.send_mac(b"check me".to_vec(), None, false);
+            s.send_mac(16, None, false);
             state_bytes(&s.st).to_vec()
         };
         // Now do the same thing but stream the inputs
@@ -568,8 +640,8 @@ mod test {
             s.ad(b"nonce".to_vec(), None, true);
             s.recv_enc(b"hello".to_vec(), None, false);
             s.recv_enc(b" there".to_vec(), None, true);
-            s.send_mac(b"check".to_vec(), None, false);
-            s.send_mac(b" me".to_vec(), None, true);
+            s.send_mac(10, None, false);
+            s.send_mac(6, None, true);
             state_bytes(&s.st).to_vec()
         };
 
