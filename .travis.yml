@@ -1,8 +1,14 @@
 language: rust
-rust:
-  - stable
-  - beta
-  - nightly
+matrix:
+  include:
+    - rust: stable
+    - rust: beta
+    - rust: nightly
+      script:
+        - cargo test --verbose --no-default-features
+        - cargo test --verbose --no-default-features --features std
+        - cargo test --verbose --no-default-features --features nightly
+        - cargo test --verbose --no-default-features --features std,nightly
 
 notifications:
   email:
