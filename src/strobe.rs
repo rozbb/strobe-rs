@@ -1,13 +1,10 @@
-use byteorder::{LittleEndian, ReadBytesExt};
+use prelude::*;
+
+use byteorder::{ByteOrder, LittleEndian};
 use keccak::{self, keccakf, state_bytes_mut};
 use subtle::{self, ConstantTimeEq};
 
-use std::io;
-
-lazy_static! {
-    static ref VERSION: &'static str = "1.0.2";
-    static ref FULL_VERSION: Vec<u8> = format!("STROBEv{}", &*VERSION).as_bytes().to_vec();
-}
+const STROBE_VERSION: &'static str = "1.0.2";
 
 bitflags! {
     /// Operation flags defined in the Strobe paper. This is defined as a bitflags struct.
@@ -169,17 +166,13 @@ impl Strobe {
         {
             // Last 6 zero bytes are to pad the input out to 20 bytes so it all gets read into 3
             // 64-bit words
-            let pre_iv: Vec<u8> = [
-                &[0x01, (rate as u8) + 2, 0x01, 0x00, 0x01, 0x60],
-                FULL_VERSION.as_slice(),
-                &[0x00; 6],
-            ].concat();
-            let mut cursor = io::Cursor::new(pre_iv);
-            let mut i = 0;
-            while let Ok(w) = cursor.read_u64::<LittleEndian>() {
-                st[i] = w;
-                i += 1;
-            }
+            let pre_iv = {
+                let mut tmp = vec![0x01, (rate as u8) + 2, 0x01, 0x00, 0x01, 0x60];
+                tmp.extend(format!("STROBEv{}", STROBE_VERSION).as_bytes());
+                tmp.extend(&[0x00; 6]);
+                tmp
+            };
+            LittleEndian::read_u64_into(pre_iv.as_slice(), &mut st[..3]);
             keccakf(&mut st)
         }
 
@@ -206,7 +199,7 @@ impl Strobe {
             "Strobe-Keccak-{}/{}-v{}",
             self.sec as usize,
             keccak::BLOCK_SIZE * 64,
-            &*VERSION
+            STROBE_VERSION
         )
     }
 
@@ -683,7 +676,12 @@ mod test {
         assert!(good_res.is_ok());
 
         // Test that invalid MACs are rejected
-        let bad_res = rx.recv_mac([mac, vec![0;1]].concat(), None, false);
+        let bad_mac = {
+            let mut tmp = mac.clone();
+            tmp.push(0);
+            tmp
+        };
+        let bad_res = rx.recv_mac(bad_mac, None, false);
         assert!(bad_res.is_err());
     }
 }

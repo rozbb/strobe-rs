@@ -1,14 +1,24 @@
 [package]
 name = "strobe-rs"
 description = "An implementation of the Strobe protocol framework in pure Rust"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Michael Rosenberg <micro@fastmail.com>"]
 license = "MIT/Apache-2.0"
-keywords = ["crypto", "cryptography", "strobe", "protocol", "framework"]
+keywords = ["crypto", "strobe", "protocol", "framework", "no_std"]
+
+[features]
+default = ["std"]
+std = ["subtle/std"]
+nightly = ["subtle/nightly"]
+
+# Setting the appropriate flags so these are all no_std
 
 [dependencies]
 bitflags = "1.0"
-byteorder = "1.2"
-lazy_static = "1.0"
-subtle = "0.6"
+byteorder = { version = "1.2", default-features = false } # Don't need the std stuff at all
 tiny-keccak = "1.0"
+
+[dependencies.subtle]
+version = "0.6"
+default-features = false
+features = ["generic-impls"] # Defaults are ["std, generic-impls"]

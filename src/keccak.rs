@@ -6,14 +6,14 @@ pub const BLOCK_SIZE: usize = 25;
 
 #[inline(always)]
 pub fn state_bytes_mut(s: &mut [u64; BLOCK_SIZE]) -> &mut [u8; BLOCK_SIZE*8] {
-    unsafe { ::std::mem::transmute(s) }
+    unsafe { ::core::mem::transmute(s) }
 }
 
 // We only really use this in tests
 #[cfg(test)]
 #[inline(always)]
 pub fn state_bytes(s: &[u64; BLOCK_SIZE]) -> &[u8; BLOCK_SIZE*8] {
-    unsafe { ::std::mem::transmute(s) }
+    unsafe { ::core::mem::transmute(s) }
 }
 
 /*
