@@ -10,19 +10,21 @@
 
 //-------- Testing stuff --------//
 
-#[cfg(test)]
+// kat_tests requires std. These are its deps
+#[cfg(all(test, feature="std"))]
 extern crate hex;
-#[cfg(test)]
+#[cfg(all(test, feature="std"))]
 extern crate serde;
-#[cfg(test)]
+#[cfg(all(test, feature="std"))]
 extern crate serde_json;
-#[cfg(test)]
+#[cfg(all(test, feature="std"))]
 #[macro_use] extern crate serde_derive;
 
 #[cfg(test)]
 mod basic_tests;
 
-#[cfg(test)]
+// kat_tests requires std
+#[cfg(all(test, feature="std"))]
 mod kat_tests;
 
 //-------- Normal deps --------//
