@@ -40,7 +40,6 @@ TODO
 ----
 
 * Add benchmarks
-* Include test vectors from [StrobeGo](https://github.com/mimoo/StrobeGo)
 * Contribute an asm impelmentation of Keccak-f\[1600\] to tiny-keccak and expose a feature flag that lets
   `strobe-rs` users choose which implementation they prefer.
 * Put more asserts in the code like the Python implementation does. Not sure if this is a great idea

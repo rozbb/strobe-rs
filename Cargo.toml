@@ -22,3 +22,9 @@ tiny-keccak = "1.0"
 version = "0.6"
 default-features = false
 features = ["generic-impls"] # Defaults are ["std, generic-impls"]
+
+[dev-dependencies]
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+hex = "0.3"
