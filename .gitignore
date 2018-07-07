@@ -2,4 +2,4 @@
 **/*.rs.bk
 Cargo.lock
 *.vi
-orig-code/
+/orig-strobe

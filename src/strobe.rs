@@ -4,7 +4,8 @@ use byteorder::{ByteOrder, LittleEndian};
 use keccak::{self, keccakf, state_bytes_mut};
 use subtle::{self, ConstantTimeEq};
 
-const STROBE_VERSION: &'static str = "1.0.2";
+/// Version of Strobe that this crate implements.
+pub const STROBE_VERSION: &'static str = "1.0.2";
 
 bitflags! {
     /// Operation flags defined in the Strobe paper. This is defined as a bitflags struct.
