@@ -1,11 +1,11 @@
 //-------- no_std stuff --------//
 #![no_std]
-#![cfg_attr(not(feature = "std"), feature(alloc))]
+#![cfg_attr(not(feature="std"), feature(alloc))]
 
-#[cfg(feature = "std")]
+#[cfg(feature="std")]
 #[macro_use] extern crate std;
 
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature="std"))]
 #[macro_use] extern crate alloc;
 
 //-------- Testing stuff --------//

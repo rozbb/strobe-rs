@@ -17,8 +17,8 @@ pub fn state_bytes(s: &[u64; BLOCK_SIZE]) -> &[u8; BLOCK_SIZE*8] {
 }
 
 /*
-    # The Python 2 code used to generate this test vector:
-    # For more information on how to get this code running, see the `test` module inside strobe.rs
+    # The Python 2 code used to generate this test vector is below. For more information on how to
+    # get this code running, look at the comment at the top # of `basic_tests.rs`
     from Strobe.Keccak import KeccakF
     k = KeccakF()
     out = k([0]*200)

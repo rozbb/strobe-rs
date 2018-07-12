@@ -351,6 +351,7 @@ impl Strobe {
     /// Attempts to authenticate the current state against the given MAC. On failure, it returns an
     /// `AuthError`. It behooves the user of this library to check this return value and overreact
     /// on error.
+    #[must_use]
     pub fn recv_mac(
         &mut self,
         data: Vec<u8>,
