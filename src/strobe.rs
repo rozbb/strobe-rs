@@ -1,7 +1,12 @@
-use prelude::*;
+use crate::{
+    keccak::{self, keccakf, state_bytes_mut},
+    prelude::*,
+};
 
+// The bitflags import is so ugly because these are all macros and bitflags hasn't been updated to
+// use Rust 2018
+use bitflags::{__bitflags, __impl_bitflags, bitflags};
 use byteorder::{ByteOrder, LittleEndian};
-use keccak::{self, keccakf, state_bytes_mut};
 use subtle::{self, ConstantTimeEq};
 
 /// Version of Strobe that this crate implements.

@@ -1,13 +1,16 @@
-use keccak::state_bytes;
-use prelude::*;
-use strobe::{OpFlags, SecParam, Strobe};
+use crate::{
+    keccak::state_bytes,
+    prelude::*,
+    strobe::{OpFlags, SecParam, Strobe},
+};
 
-use std::fs::File;
-use std::path::Path;
+use std::{fs::File, path::Path};
 
 use hex;
-use serde::de::Error as SError;
-use serde::{Deserialize, Deserializer};
+use serde::{
+    Deserialize, Deserializer,
+    de::Error as SError,
+};
 use serde_json;
 
 #[derive(Deserialize)]
