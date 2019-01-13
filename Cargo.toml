@@ -22,9 +22,8 @@ byteorder = { version = "1.2", default-features = false } # Don't need the std s
 tiny-keccak = "1.0"
 
 [dependencies.subtle]
-version = "0.6"
-default-features = false
-features = ["generic-impls"] # Defaults are ["std, generic-impls"]
+version = "2.0"
+default-features = false # Defaults are ["std", "i128"]
 
 [dev-dependencies]
 serde = "1.0"
