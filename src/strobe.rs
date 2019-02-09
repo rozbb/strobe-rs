@@ -62,7 +62,7 @@ pub struct AuthError;
 /// # use strobe_rs::{SecParam, Strobe};
 /// # fn main() {
 /// # let mut s = Strobe::new(b"example-of-more".to_vec(), SecParam::B128);
-/// s.ad(b"hello world".to_vec(), None, false);
+/// s.ad(b"hello world".to_vec(), false);
 /// # }
 /// ```
 /// is equivalent to
@@ -71,8 +71,8 @@ pub struct AuthError;
 /// # use strobe_rs::{SecParam, Strobe};
 /// # fn main() {
 /// # let mut s = Strobe::new(b"example-of-more".to_vec(), SecParam::B128);
-/// s.ad(b"hello ".to_vec(), None, false);
-/// s.ad(b"world".to_vec(), None, true);
+/// s.ad(b"hello ".to_vec(), false);
+/// s.ad(b"world".to_vec(), true);
 /// # }
 /// ```
 ///
@@ -95,17 +95,26 @@ pub struct Strobe {
 
 // Most methods return some bytes and cannot error. This macro is for those methods.
 macro_rules! def_op {
-    ($name:ident, $flags:expr, $doc_str:expr) => (
+    ($name:ident, $meta_name:ident, $flags:expr, $doc_str:expr) => (
         #[doc = $doc_str]
         pub fn $name(
             &mut self,
             data: Vec<u8>,
-            metadata: Option<(OpFlags, Vec<u8>)>,
             more: bool,
         ) -> Vec<u8> {
 
             let flags = $flags;
-            self.operate(flags, data, metadata, more).unwrap().unwrap()
+            self.operate(flags, data, more).unwrap().unwrap()
+        }
+
+        pub fn $meta_name(
+            &mut self,
+            data: Vec<u8>,
+            more: bool,
+        ) -> Vec<u8> {
+
+            let flags = $flags | OpFlags::M;
+            self.operate(flags, data, more).unwrap().unwrap()
         }
     )
 }
@@ -113,7 +122,7 @@ macro_rules! def_op {
 // Some methods only take an integer as an input (representing how long the output should be). This
 // macro is for those methods.
 macro_rules! def_op_int_input {
-    ($name:ident, $flags:expr, $doc_str:expr) => (
+    ($name:ident, $meta_name:ident, $flags:expr, $doc_str:expr) => (
         #[doc = $doc_str]
         ///
         /// Takes a `usize` argument instead of bytes. This specifies the number of bytes the user
@@ -121,19 +130,28 @@ macro_rules! def_op_int_input {
         pub fn $name(
             &mut self,
             output_len: usize,
-            metadata: Option<(OpFlags, Vec<u8>)>,
             more: bool,
         ) -> Vec<u8> {
 
             let flags = $flags;
-            self.operate(flags, vec![0;output_len], metadata, more).unwrap().unwrap()
+            self.operate(flags, vec![0;output_len], more).unwrap().unwrap()
+        }
+
+        pub fn $meta_name(
+            &mut self,
+            output_len: usize,
+            more: bool,
+        ) -> Vec<u8> {
+
+            let flags = $flags | OpFlags::M;
+            self.operate(flags, vec![0;output_len], more).unwrap().unwrap()
         }
     )
 }
 
 // Some methods will only return bytes if metadata was given. This macro is for those methods.
 macro_rules! def_op_opt_return {
-    ($name:ident, $flags:expr, $doc_str:expr) => (
+    ($name:ident, $meta_name:ident, $flags:expr, $doc_str:expr) => (
         #[doc = $doc_str]
         ///
         /// Takes input as normal. This will return a value if and only if metadata is supplied in
@@ -141,12 +159,21 @@ macro_rules! def_op_opt_return {
         pub fn $name(
             &mut self,
             data: Vec<u8>,
-            metadata: Option<(OpFlags, Vec<u8>)>,
             more: bool,
         ) -> Option<Vec<u8>> {
 
             let flags = $flags;
-            self.operate(flags, data, metadata, more).unwrap()
+            self.operate(flags, data, more).unwrap()
+        }
+
+        pub fn $meta_name(
+            &mut self,
+            data: Vec<u8>,
+            more: bool,
+        ) -> Option<Vec<u8>> {
+
+            let flags = $flags | OpFlags::M;
+            self.operate(flags, data, more).unwrap()
         }
     )
 }
@@ -177,7 +204,7 @@ impl Strobe {
         };
 
         // Mix the protocol into the state
-        let _ = strobe.operate(OpFlags::A | OpFlags::M, proto, None, false);
+        let _ = strobe.meta_ad(proto, false);
 
         strobe
     }
@@ -286,7 +313,6 @@ impl Strobe {
         &mut self,
         flags: OpFlags,
         mut data: Vec<u8>,
-        metadata: Option<(OpFlags, Vec<u8>)>,
         more: bool,
     ) -> Result<Option<Vec<u8>>, AuthError> {
         assert_eq!(
@@ -295,13 +321,7 @@ impl Strobe {
             "Op flag K not implemented"
         );
 
-        let mut meta_out: Option<Vec<u8>> = None;
         if !more {
-            if let Some((mut md_flags, md)) = metadata {
-                // Metadata must have the M flag set
-                md_flags.set(OpFlags::M, true);
-                meta_out = self.operate(md_flags, md, None, more)?;
-            }
             self.begin_op(flags);
         }
 
@@ -322,21 +342,11 @@ impl Strobe {
 
         // This operation outputs to the application
         if flags.contains(OpFlags::I) && flags.contains(OpFlags::A) {
-            if let Some(mut m) = meta_out {
-                m.extend(processed);
-                Ok(Some(m))
-            } else {
-                Ok(Some(processed))
-            }
+            Ok(Some(processed))
         }
         // This operation outputs to transport. This case does the same thing as above.
         else if flags.contains(OpFlags::T) && !flags.contains(OpFlags::I) {
-            if let Some(mut m) = meta_out {
-                m.extend(processed);
-                Ok(Some(m))
-            } else {
-                Ok(Some(processed))
-            }
+            Ok(Some(processed))
         }
         // This operation is recv_mac
         else if flags.contains(OpFlags::I)
@@ -352,12 +362,12 @@ impl Strobe {
             if all_zero.unwrap_u8() != 1 {
                 Err(AuthError)
             } else {
-                Ok(meta_out)
+                Ok(None)
             }
         }
         // Output metadata if any was given
         else {
-            Ok(meta_out)
+            Ok(Some(processed))
         }
     }
 
@@ -369,11 +379,24 @@ impl Strobe {
     pub fn recv_mac(
         &mut self,
         data: Vec<u8>,
-        metadata: Option<(OpFlags, Vec<u8>)>,
         more: bool,
     ) -> Result<Option<Vec<u8>>, AuthError> {
         let flags = OpFlags::I | OpFlags::C | OpFlags::T;
-        self.operate(flags, data, metadata, more)
+        self.operate(flags, data, more)
+    }
+
+    // This is separately defined because it's the only method that can return a `Result`
+    /// Attempts to authenticate the current state against the given MAC. On failure, it returns an
+    /// `AuthError`. It behooves the user of this library to check this return value and overreact
+    /// on error.
+    #[must_use]
+    pub fn meta_recv_mac(
+        &mut self,
+        data: Vec<u8>,
+        more: bool,
+    ) -> Result<Option<Vec<u8>>, AuthError> {
+        let flags = OpFlags::I | OpFlags::C | OpFlags::T | OpFlags::M;
+        self.operate(flags, data, more)
     }
 
     // This is separately defined because it's the only method that takes an integer and returns an
@@ -385,43 +408,64 @@ impl Strobe {
     pub fn ratchet(
         &mut self,
         bytes_to_zero: usize,
-        metadata: Option<(OpFlags, Vec<u8>)>,
         more: bool,
     ) -> Option<Vec<u8>> {
         let flags = OpFlags::C;
-        self.operate(flags, vec![0; bytes_to_zero], metadata, more)
+        self.operate(flags, vec![0; bytes_to_zero], more)
+            .unwrap()
+    }
+
+    // This is separately defined because it's the only method that takes an integer and returns an
+    // Option<Vec<u8>>.
+    /// Ratchets the internal state forward in an irreversible way by zeroing bytes.
+    ///
+    /// Takes a `usize` argument specifying the number of bytes of public state to zero. If the
+    /// size exceeds `self.rate`, Keccak-f will be called before more bytes are zeroed.
+    pub fn meta_ratchet(
+        &mut self,
+        bytes_to_zero: usize,
+        more: bool,
+    ) -> Option<Vec<u8>> {
+        let flags = OpFlags::C | OpFlags::M;
+        self.operate(flags, vec![0; bytes_to_zero], more)
             .unwrap()
     }
 
     // These operations always return something
     def_op!(
         send_clr,
+        meta_send_clr,
         OpFlags::A | OpFlags::T,
         "Sends a plaintext message."
     );
     def_op!(
         recv_clr,
+        meta_recv_clr,
         OpFlags::I | OpFlags::A | OpFlags::T,
         "Receives a plaintext message."
     );
     def_op!(
         send_enc,
+        meta_send_enc,
         OpFlags::A | OpFlags::C | OpFlags::T,
         "Sends an encrypted message."
     );
     def_op!(
         recv_enc,
+        meta_recv_enc,
         OpFlags::I | OpFlags::A | OpFlags::C | OpFlags::T,
         "Receives an encrypted message."
     );
     // These return something and only take length as inputs
     def_op_int_input!(
         send_mac,
+        meta_send_mac,
         OpFlags::C | OpFlags::T,
         "Sends a MAC of the internal state."
     );
     def_op_int_input!(
         prf,
+        meta_prf,
         OpFlags::I | OpFlags::A | OpFlags::C,
         "Extracts pseudorandom data as a function of the internal state."
     );
@@ -429,11 +473,13 @@ impl Strobe {
     // These operations will return something iff metadata is given
     def_op_opt_return!(
         ad,
+        meta_ad,
         OpFlags::A,
         "Mixes associated data into the internal state."
     );
     def_op_opt_return!(
         key,
+        meta_key,
         OpFlags::A | OpFlags::C,
         "Sets a symmetric cipher key."
     );

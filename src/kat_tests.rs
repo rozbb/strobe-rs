@@ -49,12 +49,12 @@ fn state_from_hex<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let mut s = String::deserialize(deserializer)?;
+    let mut hex_str = String::deserialize(deserializer)?;
     // Prepend a 0 if it's not even length
-    if s.len() % 2 == 1 {
-        s.insert(0, '0');
+    if hex_str.len() % 2 == 1 {
+        hex_str.insert(0, '0');
     }
-    hex::decode(s).map_err(|e| SError::custom(format!("{:?}", e)))
+    hex::decode(hex_str).map_err(|e| SError::custom(format!("{:?}", e)))
 }
 
 // This function is a formality. Some fields are not present, so they're wrapped in Option in the
@@ -101,13 +101,12 @@ fn test_against_vector<P: AsRef<Path>>(filename: P) {
 
         if name == "init" {
             assert_eq!(&s.st.0[..], expected_state_after.as_slice());
-        }
-        else {
+        } else {
             let mut flags = get_flags(&*name);
             if meta {
                 flags = flags | OpFlags::M;
             }
-            let output = match s.operate(flags, input_data, None, stream) {
+            let output: Option<Vec<u8>> = match s.operate(flags, input_data, stream) {
                 Ok(o) => o,
                 // We don't expect recv_MAC to work on random inputs. We test recv_MAC's
                 // correctness in strobe.rs
@@ -115,7 +114,11 @@ fn test_against_vector<P: AsRef<Path>>(filename: P) {
             };
 
             assert_eq!(&s.st.0[..], expected_state_after.as_slice());
-            assert_eq!(output, expected_output);
+
+            // Only test expected output if the test vector has output to test against
+            if let Some(eo) = expected_output {
+                assert_eq!(output.unwrap(), eo);
+            }
         }
     }
 }
