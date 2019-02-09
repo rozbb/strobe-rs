@@ -37,14 +37,6 @@ pub enum SecParam {
     B256 = 256,
 }
 
-// Parameter given to `Strobe::duplex` that tells it when to xor input and state
-#[derive(Debug)]
-enum CombineSeq {
-    Before,
-    After,
-    Never,
-}
-
 /// An empty struct that just indicates that an error occurred in verifying a MAC
 #[derive(Debug)]
 pub struct AuthError;
@@ -212,15 +204,49 @@ impl Strobe {
         self.pos_begin = 0;
     }
 
-    fn duplex(&mut self, data: &mut [u8], seq: CombineSeq, force_f: bool) {
+    /// XORs the given data into the state. This is a special case of the `duplex` code in the
+    /// STROBE paper.
+    fn absorb(&mut self, data: &[u8], force_f: bool) {
         for b in data {
-            if let CombineSeq::Before = seq {
-                *b ^= self.st.0[self.pos];
-            }
             self.st.0[self.pos] ^= *b;
-            if let CombineSeq::After = seq {
-                *b = self.st.0[self.pos];
+
+            self.pos += 1;
+            if self.pos == self.rate {
+                self.run_f();
             }
+        }
+
+        if force_f && self.pos != 0 {
+            self.run_f();
+        }
+    }
+
+    /// XORs the given data into the state, then set the data equal the state.  This is a special
+    /// case of the `duplex` code in the STROBE paper.
+    fn absorb_and_set(&mut self, data: &mut [u8], force_f: bool) {
+        for b in data {
+            let state_byte = self.st.0.get_mut(self.pos).unwrap();
+            *state_byte ^= *b;
+            *b = *state_byte;
+
+            self.pos += 1;
+            if self.pos == self.rate {
+                self.run_f();
+            }
+        }
+
+        if force_f && self.pos != 0 {
+            self.run_f();
+        }
+    }
+
+    /// Overwrites the state with the given data while XORing the given data with the old state.
+    /// This is a special case of the `duplex` code in the STROBE paper.
+    fn exchange(&mut self, data: &mut [u8], force_f: bool) {
+        for b in data {
+            let state_byte = self.st.0.get_mut(self.pos).unwrap();
+            *b ^= *state_byte;
+            *state_byte ^= *b;
 
             self.pos += 1;
             if self.pos == self.rate {
@@ -252,7 +278,7 @@ impl Strobe {
         // Mix in the position and flags
         let to_mix = &mut [old_pos_begin as u8, flags.bits()];
         let force_f = flags.contains(OpFlags::C) || flags.contains(OpFlags::K);
-        self.duplex(&mut to_mix[..], CombineSeq::Never, force_f);
+        self.absorb(&to_mix[..], force_f);
     }
 
     // TODO?: Keep track of cur_flags and assert they don't change when `more` is set
@@ -280,18 +306,17 @@ impl Strobe {
         }
 
         // TODO?: Assert that input is empty under some flag conditions
-        let seq = if flags.contains(OpFlags::C)
+        if flags.contains(OpFlags::C)
             && flags.contains(OpFlags::T)
             && !flags.contains(OpFlags::I)
         {
-            CombineSeq::After
+            self.absorb_and_set(data.as_mut_slice(), false);
         } else if flags.contains(OpFlags::C) {
-            CombineSeq::Before
+            self.exchange(data.as_mut_slice(), false);
         } else {
-            CombineSeq::Never
+            self.absorb(data.as_slice(), false);
         };
 
-        self.duplex(data.as_mut_slice(), seq, false);
         // Rename for clarity
         let processed = data;
 
