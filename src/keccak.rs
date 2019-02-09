@@ -1,19 +1,33 @@
-/// Re-export the keccak-f\[1600\] that we pull in
-pub use tiny_keccak::keccakf as keccakf;
+#[cfg(not(target_endian = "little"))]
+use byteorder::{ByteOrder, LittleEndian};
 
 /// keccak block size in 64-bit words. This is the N parameter in the STROBE spec
-pub const BLOCK_SIZE: usize = 25;
+pub const KECCAK_BLOCK_SIZE: usize = 25;
 
-#[inline(always)]
-pub fn state_bytes_mut(s: &mut [u64; BLOCK_SIZE]) -> &mut [u8; BLOCK_SIZE*8] {
-    unsafe { ::core::mem::transmute(s) }
+/// This is a wrapper around 200-byte buffer that's always 8-byte aligned to make pointers to it
+/// safely convertible to pointers to [u64; 25] (since u64 words must be 8-byte aligned)
+#[derive(Clone)]
+#[repr(align(8))]
+pub(crate) struct AlignedKeccakState(pub(crate) [u8; 8*KECCAK_BLOCK_SIZE]);
+
+/// Performs the keccakf\[1600\] permutation on a byte buffer
+// When we're on a little-endian platform, there's no need to copy over the buffer, we can do the
+// keccak_f in-place
+#[cfg(target_endian = "little")]
+pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
+    unsafe {
+        let mut transmuted_block: &mut [u64; KECCAK_BLOCK_SIZE] = core::mem::transmute(&mut st.0);
+        tiny_keccak::keccakf(&mut transmuted_block);
+    }
 }
 
-// We only really use this in tests
-#[cfg(test)]
-#[inline(always)]
-pub fn state_bytes(s: &[u64; BLOCK_SIZE]) -> &[u8; BLOCK_SIZE*8] {
-    unsafe { ::core::mem::transmute(s) }
+/// Performs the keccakf\[1600\] permutation on a byte buffer
+#[cfg(not(target_endian = "little"))]
+pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
+    let mut keccak_block = [0u64; KECCAK_BLOCK_SIZE];
+    LittleEndian::read_u64_into(st.0, &mut keccak_block);
+    tiny_keccak::keccakf(&mut keccak_block);
+    LittleEndian::write_u64_into(&keccak_block, &mut st.0);
 }
 
 /*
@@ -26,8 +40,8 @@ pub fn state_bytes(s: &[u64; BLOCK_SIZE]) -> &[u8; BLOCK_SIZE*8] {
 */
 #[test]
 fn zero_keccak() {
-    let mut state = [0u64; BLOCK_SIZE];
-    keccakf(&mut state);
+    let mut state = AlignedKeccakState([0u8; 8*KECCAK_BLOCK_SIZE]);
+    keccakf_u8(&mut state);
     let expected_output = [
         0xe7, 0xdd, 0xe1, 0x40, 0x79, 0x8f, 0x25, 0xf1, 0x8a, 0x47, 0xc0, 0x33, 0xf9, 0xcc, 0xd5,
         0x84, 0xee, 0xa9, 0x5a, 0xa6, 0x1e, 0x26, 0x98, 0xd5, 0x4d, 0x49, 0x80, 0x6f, 0x30, 0x47,
@@ -45,5 +59,5 @@ fn zero_keccak() {
         0x5c, 0x7b, 0xff, 0xf1, 0xea,
     ];
 
-    assert_eq!(&state_bytes(&state)[..], &expected_output[..]);
+    assert_eq!(&state.0[..], &expected_output[..]);
 }

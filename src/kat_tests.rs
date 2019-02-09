@@ -1,5 +1,4 @@
 use crate::{
-    keccak::state_bytes,
     prelude::*,
     strobe::{OpFlags, SecParam, Strobe},
 };
@@ -101,7 +100,7 @@ fn test_against_vector<P: AsRef<Path>>(filename: P) {
         } = test_op;
 
         if name == "init" {
-            assert_eq!(&state_bytes(&s.st)[..], expected_state_after.as_slice());
+            assert_eq!(&s.st.0[..], expected_state_after.as_slice());
         }
         else {
             let mut flags = get_flags(&*name);
@@ -115,7 +114,7 @@ fn test_against_vector<P: AsRef<Path>>(filename: P) {
                 Err(_auth_err) => None
             };
 
-            assert_eq!(&state_bytes(&s.st)[..], expected_state_after.as_slice());
+            assert_eq!(&s.st.0[..], expected_state_after.as_slice());
             assert_eq!(output, expected_output);
         }
     }

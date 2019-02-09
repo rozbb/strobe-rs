@@ -1,12 +1,11 @@
 use crate::{
-    keccak::{self, keccakf, state_bytes_mut},
+    keccak::{keccakf_u8, AlignedKeccakState, KECCAK_BLOCK_SIZE},
     prelude::*,
 };
 
 // The bitflags import is so ugly because these are all macros and bitflags hasn't been updated to
 // use Rust 2018
 use bitflags::{__bitflags, __impl_bitflags, bitflags};
-use byteorder::{ByteOrder, LittleEndian};
 use subtle::{self, ConstantTimeEq};
 
 /// Version of Strobe that this crate implements.
@@ -90,7 +89,7 @@ pub struct AuthError;
 #[derive(Clone)]
 pub struct Strobe {
     /// Internal Keccak state
-    pub(crate) st: [u64; keccak::BLOCK_SIZE],
+    pub(crate) st: AlignedKeccakState,
     /// Security parameter (128 or 256)
     pub sec: SecParam,
     /// This is the `R` parameter in the Strobe spec
@@ -163,26 +162,20 @@ macro_rules! def_op_opt_return {
 impl Strobe {
     /// Makes a new `Strobe` object with a given protocol byte string and security parameter.
     pub fn new(proto: Vec<u8>, sec: SecParam) -> Strobe {
-        let rate = keccak::BLOCK_SIZE * 8 - (sec as usize) / 4 - 2;
+        let rate = KECCAK_BLOCK_SIZE * 8 - (sec as usize) / 4 - 2;
         assert!(rate >= 1);
         assert!(rate < 254);
 
         // Initialize state: st = F([0x01, R+2, 0x01, 0x00, 0x01, 0x60] + b"STROBEvX.Y.Z")
-        let mut st = [0u64; keccak::BLOCK_SIZE];
-        {
-            // Last 6 zero bytes are to pad the input out to 20 bytes so it all gets read into 3
-            // 64-bit words
-            let pre_iv = {
-                let mut tmp = vec![0x01, (rate as u8) + 2, 0x01, 0x00, 0x01, 0x60];
-                tmp.extend(format!("STROBEv{}", STROBE_VERSION).as_bytes());
-                tmp.extend(&[0x00; 6]);
-                tmp
-            };
-            LittleEndian::read_u64_into(pre_iv.as_slice(), &mut st[..3]);
-            keccakf(&mut st)
-        }
+        let mut st_buf = [0u8; KECCAK_BLOCK_SIZE*8];
+        st_buf[0..6].copy_from_slice(&[0x01, (rate as u8) + 2, 0x01, 0x00, 0x01, 0x60]);
+        st_buf[6..13].copy_from_slice(b"STROBEv");
+        st_buf[13..18].copy_from_slice(STROBE_VERSION.as_bytes());
 
-        let mut s = Strobe {
+        let mut st = AlignedKeccakState(st_buf);
+        keccakf_u8(&mut st);
+
+        let mut strobe = Strobe {
             st: st,
             sec: sec,
             rate: rate,
@@ -192,9 +185,9 @@ impl Strobe {
         };
 
         // Mix the protocol into the state
-        let _ = s.operate(OpFlags::A | OpFlags::M, proto, None, false);
+        let _ = strobe.operate(OpFlags::A | OpFlags::M, proto, None, false);
 
-        s
+        strobe
     }
 
     /// Returns a string of the form `Strobe-Keccak-<sec>/<b>v<ver>` where `sec` is the bits of
@@ -204,38 +197,29 @@ impl Strobe {
         format!(
             "Strobe-Keccak-{}/{}-v{}",
             self.sec as usize,
-            keccak::BLOCK_SIZE * 64,
+            KECCAK_BLOCK_SIZE * 64,
             STROBE_VERSION
         )
     }
 
     fn run_f(&mut self) {
-        // Use same scoping trick here as in duplex
-        {
-            let st = state_bytes_mut(&mut self.st);
-            st[self.pos] ^= self.pos_begin as u8;
-            st[self.pos + 1] ^= 0x04;
-            st[self.rate + 1] ^= 0x80;
-        }
+        self.st.0[self.pos] ^= self.pos_begin as u8;
+        self.st.0[self.pos + 1] ^= 0x04;
+        self.st.0[self.rate + 1] ^= 0x80;
 
-        keccakf(&mut self.st);
+        keccakf_u8(&mut self.st);
         self.pos = 0;
         self.pos_begin = 0;
     }
 
     fn duplex(&mut self, data: &mut [u8], seq: CombineSeq, force_f: bool) {
         for b in data {
-            // We need to separately scope st because we can't have two &muts pointing to the same
-            // thing in scope at the same time
-            {
-                let st = state_bytes_mut(&mut self.st);
-                if let CombineSeq::Before = seq {
-                    *b ^= st[self.pos];
-                }
-                st[self.pos] ^= *b;
-                if let CombineSeq::After = seq {
-                    *b = st[self.pos];
-                }
+            if let CombineSeq::Before = seq {
+                *b ^= self.st.0[self.pos];
+            }
+            self.st.0[self.pos] ^= *b;
+            if let CombineSeq::After = seq {
+                *b = self.st.0[self.pos];
             }
 
             self.pos += 1;

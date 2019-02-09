@@ -8,7 +8,7 @@
 
 #[cfg(test)]
 use crate::{
-    keccak,
+    keccak::KECCAK_BLOCK_SIZE,
     prelude::*,
     strobe::{OpFlags, Strobe, SecParam},
 };
@@ -24,8 +24,8 @@ use crate::{
 #[test]
 fn test_init_128() {
     let s = Strobe::new(Vec::new(), SecParam::B128);
-    let initial_st = keccak::state_bytes(&s.st);
-    let expected_st: &[u8; keccak::BLOCK_SIZE * 8] = &[
+    let initial_st = s.st.0;
+    let expected_st: &[u8; 8*KECCAK_BLOCK_SIZE] = &[
         0x9c, 0x7f, 0x16, 0x8f, 0xf8, 0xfd, 0x55, 0xda, 0x2a, 0xa7, 0x3c, 0x23, 0x55, 0x65,
         0x35, 0x63, 0xdc, 0x0c, 0x47, 0x5c, 0x55, 0x15, 0x26, 0xf6, 0x73, 0x3b, 0xea, 0x22,
         0xf1, 0x6c, 0xb5, 0x7c, 0xd3, 0x1f, 0x68, 0x2e, 0x66, 0x0e, 0xe9, 0x12, 0x82, 0x4a,
@@ -57,8 +57,8 @@ fn test_init_128() {
 #[test]
 fn test_init_256() {
     let s = Strobe::new(Vec::new(), SecParam::B256);
-    let initial_st = keccak::state_bytes(&s.st);
-    let expected_st: &[u8; keccak::BLOCK_SIZE * 8] = &[
+    let initial_st = s.st.0;
+    let expected_st: &[u8; 8*KECCAK_BLOCK_SIZE] = &[
         0x37, 0xc1, 0x15, 0x06, 0xed, 0x61, 0xe7, 0xda, 0x7c, 0x1a, 0x2f, 0x2c, 0x1f, 0x49,
         0x74, 0xb0, 0x71, 0x66, 0xc2, 0xea, 0x7f, 0x62, 0xec, 0xa6, 0xe0, 0x36, 0xc1, 0x6e,
         0xae, 0x39, 0xb4, 0xdf, 0x3a, 0x06, 0x11, 0xf1, 0x36, 0xc7, 0x33, 0x94, 0x31, 0x13,
@@ -116,7 +116,7 @@ fn test_seq() {
     s.prf(123, None, false);
     s.send_mac(16, None, false);
 
-    let final_st = keccak::state_bytes(&s.st);
+    let final_st = s.st.0;
     let expected_st = [
         0xdf, 0x7a, 0x38, 0x71, 0x06, 0xcc, 0x24, 0x82, 0x11, 0x31, 0x60, 0x43, 0xa9, 0xf0,
         0xf5, 0xd0, 0x49, 0xc2, 0xce, 0xd3, 0x85, 0xfc, 0x9e, 0xa8, 0x0e, 0xc1, 0x46, 0xa4,
@@ -197,8 +197,8 @@ fn test_metadata() {
         0x50, 0x19, 0x52, 0x79,
     ];
 
-    assert_eq!(&*md, &expected_md[..]);
-    assert_eq!(&keccak::state_bytes(&s.st)[..], &expected_st[..]);
+    assert_eq!(&md, &expected_md);
+    assert_eq!(&s.st.0[..], &expected_st[..]);
 }
 
 // Test that streaming in data using the `more` flag works as expected
@@ -210,7 +210,7 @@ fn test_streaming() {
         s.ad(b"mynonce".to_vec(), None, false);
         s.recv_enc(b"hello there".to_vec(), None, false);
         s.send_mac(16, None, false);
-        keccak::state_bytes(&s.st).to_vec()
+        s.st.0.to_vec()
     };
     // Now do the same thing but stream the inputs
     let streamed_st: Vec<u8> = {
@@ -221,7 +221,7 @@ fn test_streaming() {
         s.recv_enc(b" there".to_vec(), None, true);
         s.send_mac(10, None, false);
         s.send_mac(6, None, true);
-        keccak::state_bytes(&s.st).to_vec()
+        s.st.0.to_vec()
     };
 
     assert_eq!(one_shot_st, streamed_st);
