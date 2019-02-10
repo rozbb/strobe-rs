@@ -8,7 +8,7 @@ pub const KECCAK_BLOCK_SIZE: usize = 25;
 /// safely convertible to pointers to [u64; 25] (since u64 words must be 8-byte aligned)
 #[derive(Clone)]
 #[repr(align(8))]
-pub(crate) struct AlignedKeccakState(pub(crate) [u8; 8*KECCAK_BLOCK_SIZE]);
+pub(crate) struct AlignedKeccakState(pub(crate) [u8; 8 * KECCAK_BLOCK_SIZE]);
 
 /// Performs the keccakf\[1600\] permutation on a byte buffer
 // When we're on a little-endian platform, there's no need to copy over the buffer, we can do the
@@ -40,7 +40,7 @@ pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
 */
 #[test]
 fn zero_keccak() {
-    let mut state = AlignedKeccakState([0u8; 8*KECCAK_BLOCK_SIZE]);
+    let mut state = AlignedKeccakState([0u8; 8 * KECCAK_BLOCK_SIZE]);
     keccakf_u8(&mut state);
     let expected_output = [
         0xe7, 0xdd, 0xe1, 0x40, 0x79, 0x8f, 0x25, 0xf1, 0x8a, 0x47, 0xc0, 0x33, 0xf9, 0xcc, 0xd5,

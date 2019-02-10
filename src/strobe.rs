@@ -61,8 +61,8 @@ pub struct AuthError;
 /// # extern crate strobe_rs;
 /// # use strobe_rs::{SecParam, Strobe};
 /// # fn main() {
-/// # let mut s = Strobe::new(b"example-of-more".to_vec(), SecParam::B128);
-/// s.ad(b"hello world".to_vec(), false);
+/// # let mut s = Strobe::new(b"example-of-more", SecParam::B128);
+/// s.ad(b"hello world", false);
 /// # }
 /// ```
 /// is equivalent to
@@ -70,9 +70,9 @@ pub struct AuthError;
 /// # extern crate strobe_rs;
 /// # use strobe_rs::{SecParam, Strobe};
 /// # fn main() {
-/// # let mut s = Strobe::new(b"example-of-more".to_vec(), SecParam::B128);
-/// s.ad(b"hello ".to_vec(), false);
-/// s.ad(b"world".to_vec(), true);
+/// # let mut s = Strobe::new(b"example-of-more", SecParam::B128);
+/// s.ad(b"hello ", false);
+/// s.ad(b"world", true);
 /// # }
 /// ```
 ///
@@ -99,94 +99,54 @@ macro_rules! def_op {
         #[doc = $doc_str]
         pub fn $name(
             &mut self,
-            data: Vec<u8>,
+            data: &mut [u8],
             more: bool,
-        ) -> Vec<u8> {
+        ) {
 
             let flags = $flags;
-            self.operate(flags, data, more).unwrap().unwrap()
+            self.operate(flags, data, more);
         }
 
         pub fn $meta_name(
             &mut self,
-            data: Vec<u8>,
+            data: &mut [u8],
             more: bool,
-        ) -> Vec<u8> {
+        ) {
 
             let flags = $flags | OpFlags::M;
-            self.operate(flags, data, more).unwrap().unwrap()
-        }
-    )
-}
-
-// Some methods only take an integer as an input (representing how long the output should be). This
-// macro is for those methods.
-macro_rules! def_op_int_input {
-    ($name:ident, $meta_name:ident, $flags:expr, $doc_str:expr) => (
-        #[doc = $doc_str]
-        ///
-        /// Takes a `usize` argument instead of bytes. This specifies the number of bytes the user
-        /// wants as output.
-        pub fn $name(
-            &mut self,
-            output_len: usize,
-            more: bool,
-        ) -> Vec<u8> {
-
-            let flags = $flags;
-            self.operate(flags, vec![0;output_len], more).unwrap().unwrap()
-        }
-
-        pub fn $meta_name(
-            &mut self,
-            output_len: usize,
-            more: bool,
-        ) -> Vec<u8> {
-
-            let flags = $flags | OpFlags::M;
-            self.operate(flags, vec![0;output_len], more).unwrap().unwrap()
+            self.operate(flags, data, more);
         }
     )
 }
 
 // Some methods will only return bytes if metadata was given. This macro is for those methods.
-macro_rules! def_op_opt_return {
+macro_rules! def_op_no_mut {
     ($name:ident, $meta_name:ident, $flags:expr, $doc_str:expr) => (
         #[doc = $doc_str]
         ///
         /// Takes input as normal. This will return a value if and only if metadata is supplied in
         /// the input.
-        pub fn $name(
-            &mut self,
-            data: Vec<u8>,
-            more: bool,
-        ) -> Option<Vec<u8>> {
-
+        pub fn $name(&mut self, data: &[u8], more: bool) {
             let flags = $flags;
-            self.operate(flags, data, more).unwrap()
+            self.operate_no_mutate(flags, data, more);
         }
 
-        pub fn $meta_name(
-            &mut self,
-            data: Vec<u8>,
-            more: bool,
-        ) -> Option<Vec<u8>> {
-
+        pub fn $meta_name(&mut self, data: &[u8], more: bool) {
             let flags = $flags | OpFlags::M;
-            self.operate(flags, data, more).unwrap()
+            self.operate_no_mutate(flags, data, more);
         }
     )
 }
 
 impl Strobe {
     /// Makes a new `Strobe` object with a given protocol byte string and security parameter.
-    pub fn new(proto: Vec<u8>, sec: SecParam) -> Strobe {
+    pub fn new(proto: &[u8], sec: SecParam) -> Strobe {
         let rate = KECCAK_BLOCK_SIZE * 8 - (sec as usize) / 4 - 2;
         assert!(rate >= 1);
         assert!(rate < 254);
 
         // Initialize state: st = F([0x01, R+2, 0x01, 0x00, 0x01, 0x60] + b"STROBEvX.Y.Z")
-        let mut st_buf = [0u8; KECCAK_BLOCK_SIZE*8];
+        let mut st_buf = [0u8; KECCAK_BLOCK_SIZE * 8];
         st_buf[0..6].copy_from_slice(&[0x01, (rate as u8) + 2, 0x01, 0x00, 0x01, 0x60]);
         st_buf[6..13].copy_from_slice(b"STROBEv");
         st_buf[13..18].copy_from_slice(STROBE_VERSION.as_bytes());
@@ -233,7 +193,7 @@ impl Strobe {
 
     /// XORs the given data into the state. This is a special case of the `duplex` code in the
     /// STROBE paper.
-    fn absorb(&mut self, data: &[u8], force_f: bool) {
+    fn absorb(&mut self, data: &[u8]) {
         for b in data {
             self.st.0[self.pos] ^= *b;
 
@@ -242,15 +202,11 @@ impl Strobe {
                 self.run_f();
             }
         }
-
-        if force_f && self.pos != 0 {
-            self.run_f();
-        }
     }
 
     /// XORs the given data into the state, then set the data equal the state.  This is a special
     /// case of the `duplex` code in the STROBE paper.
-    fn absorb_and_set(&mut self, data: &mut [u8], force_f: bool) {
+    fn absorb_and_set(&mut self, data: &mut [u8]) {
         for b in data {
             let state_byte = self.st.0.get_mut(self.pos).unwrap();
             *state_byte ^= *b;
@@ -261,15 +217,11 @@ impl Strobe {
                 self.run_f();
             }
         }
-
-        if force_f && self.pos != 0 {
-            self.run_f();
-        }
     }
 
     /// Overwrites the state with the given data while XORing the given data with the old state.
     /// This is a special case of the `duplex` code in the STROBE paper.
-    fn exchange(&mut self, data: &mut [u8], force_f: bool) {
+    fn exchange(&mut self, data: &mut [u8]) {
         for b in data {
             let state_byte = self.st.0.get_mut(self.pos).unwrap();
             *b ^= *state_byte;
@@ -280,9 +232,34 @@ impl Strobe {
                 self.run_f();
             }
         }
+    }
 
-        if force_f && self.pos != 0 {
-            self.run_f();
+    /// Overwrites the state with the given data. This is a special case of `Strobe::exchange`,
+    /// where we do not want to mutate the input data.
+    fn overwrite(&mut self, data: &[u8]) {
+        for b in data {
+            self.st.0[self.pos] = *b;
+
+            self.pos += 1;
+            if self.pos == self.rate {
+                self.run_f();
+            }
+        }
+    }
+
+    /// Copies the state into the given buffer and sets the state to 0. This is a special case of
+    /// `Strobe::exchange`, where `data` is assumed to be the all-zeros string (which is the case
+    /// for the PRF operation).
+    fn squeeze(&mut self, data: &mut [u8]) {
+        for b in data {
+            let state_byte = self.st.0.get_mut(self.pos).unwrap();
+            *b = *state_byte;
+            *state_byte = 0;
+
+            self.pos += 1;
+            if self.pos == self.rate {
+                self.run_f();
+            }
         }
     }
 
@@ -304,20 +281,18 @@ impl Strobe {
 
         // Mix in the position and flags
         let to_mix = &mut [old_pos_begin as u8, flags.bits()];
+        self.absorb(&to_mix[..]);
+
         let force_f = flags.contains(OpFlags::C) || flags.contains(OpFlags::K);
-        self.absorb(&to_mix[..], force_f);
+        if force_f && self.pos != 0 {
+            self.run_f();
+        }
     }
 
     // TODO?: Keep track of cur_flags and assert they don't change when `more` is set
-    pub(crate) fn operate(
-        &mut self,
-        flags: OpFlags,
-        mut data: Vec<u8>,
-        more: bool,
-    ) -> Result<Option<Vec<u8>>, AuthError> {
-        assert_eq!(
-            flags.contains(OpFlags::K),
-            false,
+    pub(crate) fn operate(&mut self, flags: OpFlags, data: &mut [u8], more: bool) {
+        assert!(
+            !flags.contains(OpFlags::K),
             "Op flag K not implemented"
         );
 
@@ -326,49 +301,34 @@ impl Strobe {
         }
 
         // TODO?: Assert that input is empty under some flag conditions
-        if flags.contains(OpFlags::C)
-            && flags.contains(OpFlags::T)
-            && !flags.contains(OpFlags::I)
-        {
-            self.absorb_and_set(data.as_mut_slice(), false);
+        if flags.contains(OpFlags::C) && flags.contains(OpFlags::T) && !flags.contains(OpFlags::I) {
+            self.absorb_and_set(data);
+        } else if flags == OpFlags::I | OpFlags::A | OpFlags::C {
+            // This is PRF. Use squeeze() instead of exchange()
+            self.squeeze(data);
         } else if flags.contains(OpFlags::C) {
-            self.exchange(data.as_mut_slice(), false);
+            self.exchange(data);
         } else {
-            self.absorb(data.as_slice(), false);
+            self.absorb(data);
         };
+    }
 
-        // Rename for clarity
-        let processed = data;
+    pub(crate) fn operate_no_mutate(&mut self, flags: OpFlags, data: &[u8], more: bool) {
+        assert!(
+            !flags.contains(OpFlags::K),
+            "Op flag K not implemented"
+        );
 
-        // This operation outputs to the application
-        if flags.contains(OpFlags::I) && flags.contains(OpFlags::A) {
-            Ok(Some(processed))
+        if !more {
+            self.begin_op(flags);
         }
-        // This operation outputs to transport. This case does the same thing as above.
-        else if flags.contains(OpFlags::T) && !flags.contains(OpFlags::I) {
-            Ok(Some(processed))
-        }
-        // This operation is recv_mac
-        else if flags.contains(OpFlags::I)
-            && flags.contains(OpFlags::T)
-            && !flags.contains(OpFlags::A)
-        {
-            // Constant-time MAC check. This accumulates the truth values of byte == 0
-            let mut all_zero = subtle::Choice::from(1u8);
-            for b in processed {
-                all_zero = all_zero & b.ct_eq(&0u8);
-            }
 
-            if all_zero.unwrap_u8() != 1 {
-                Err(AuthError)
-            } else {
-                Ok(None)
-            }
-        }
-        // Output metadata if any was given
-        else {
-            Ok(Some(processed))
-        }
+        if flags.contains(OpFlags::C) {
+            // Use the non-mutable version of exchange()
+            self.overwrite(data);
+        } else {
+            self.absorb(data);
+        };
     }
 
     // This is separately defined because it's the only method that can return a `Result`
@@ -376,13 +336,21 @@ impl Strobe {
     /// `AuthError`. It behooves the user of this library to check this return value and overreact
     /// on error.
     #[must_use]
-    pub fn recv_mac(
-        &mut self,
-        data: Vec<u8>,
-        more: bool,
-    ) -> Result<Option<Vec<u8>>, AuthError> {
+    pub fn recv_mac(&mut self, data: &mut [u8], more: bool) -> Result<(), AuthError> {
         let flags = OpFlags::I | OpFlags::C | OpFlags::T;
-        self.operate(flags, data, more)
+        self.operate(flags, data, more);
+
+        // Constant-time MAC check. This accumulates the truth values of byte == 0
+        let mut all_zero = subtle::Choice::from(1u8);
+        for b in data {
+            all_zero = all_zero & b.ct_eq(&0u8);
+        }
+
+        if all_zero.unwrap_u8() != 1 {
+            Err(AuthError)
+        } else {
+            Ok(())
+        }
     }
 
     // This is separately defined because it's the only method that can return a `Result`
@@ -390,13 +358,21 @@ impl Strobe {
     /// `AuthError`. It behooves the user of this library to check this return value and overreact
     /// on error.
     #[must_use]
-    pub fn meta_recv_mac(
-        &mut self,
-        data: Vec<u8>,
-        more: bool,
-    ) -> Result<Option<Vec<u8>>, AuthError> {
+    pub fn meta_recv_mac(&mut self, data: &mut [u8], more: bool) -> Result<(), AuthError> {
         let flags = OpFlags::I | OpFlags::C | OpFlags::T | OpFlags::M;
-        self.operate(flags, data, more)
+        self.operate(flags, data, more);
+
+        // Constant-time MAC check. This accumulates the truth values of byte == 0
+        let mut all_zero = subtle::Choice::from(1u8);
+        for b in data {
+            all_zero = all_zero & b.ct_eq(&0u8);
+        }
+
+        if all_zero.unwrap_u8() != 1 {
+            Err(AuthError)
+        } else {
+            Ok(())
+        }
     }
 
     // This is separately defined because it's the only method that takes an integer and returns an
@@ -405,14 +381,10 @@ impl Strobe {
     ///
     /// Takes a `usize` argument specifying the number of bytes of public state to zero. If the
     /// size exceeds `self.rate`, Keccak-f will be called before more bytes are zeroed.
-    pub fn ratchet(
-        &mut self,
-        bytes_to_zero: usize,
-        more: bool,
-    ) -> Option<Vec<u8>> {
+    pub fn ratchet(&mut self, bytes_to_zero: usize, more: bool) {
         let flags = OpFlags::C;
-        self.operate(flags, vec![0; bytes_to_zero], more)
-            .unwrap()
+        let mut zeros = vec![0u8; bytes_to_zero];
+        self.operate(flags, zeros.as_mut_slice(), more);
     }
 
     // This is separately defined because it's the only method that takes an integer and returns an
@@ -421,29 +393,13 @@ impl Strobe {
     ///
     /// Takes a `usize` argument specifying the number of bytes of public state to zero. If the
     /// size exceeds `self.rate`, Keccak-f will be called before more bytes are zeroed.
-    pub fn meta_ratchet(
-        &mut self,
-        bytes_to_zero: usize,
-        more: bool,
-    ) -> Option<Vec<u8>> {
+    pub fn meta_ratchet(&mut self, bytes_to_zero: usize, more: bool) {
         let flags = OpFlags::C | OpFlags::M;
-        self.operate(flags, vec![0; bytes_to_zero], more)
-            .unwrap()
+        let mut zeros = vec![0u8; bytes_to_zero];
+        self.operate(flags, zeros.as_mut_slice(), more);
     }
 
-    // These operations always return something
-    def_op!(
-        send_clr,
-        meta_send_clr,
-        OpFlags::A | OpFlags::T,
-        "Sends a plaintext message."
-    );
-    def_op!(
-        recv_clr,
-        meta_recv_clr,
-        OpFlags::I | OpFlags::A | OpFlags::T,
-        "Receives a plaintext message."
-    );
+    // These operations mutate their inputs
     def_op!(
         send_enc,
         meta_send_enc,
@@ -456,28 +412,39 @@ impl Strobe {
         OpFlags::I | OpFlags::A | OpFlags::C | OpFlags::T,
         "Receives an encrypted message."
     );
-    // These return something and only take length as inputs
-    def_op_int_input!(
+    def_op!(
         send_mac,
         meta_send_mac,
         OpFlags::C | OpFlags::T,
         "Sends a MAC of the internal state."
     );
-    def_op_int_input!(
+    def_op!(
         prf,
         meta_prf,
         OpFlags::I | OpFlags::A | OpFlags::C,
         "Extracts pseudorandom data as a function of the internal state."
     );
 
-    // These operations will return something iff metadata is given
-    def_op_opt_return!(
+    // These operations do not mutate their inputs
+    def_op_no_mut!(
+        send_clr,
+        meta_send_clr,
+        OpFlags::A | OpFlags::T,
+        "Sends a plaintext message."
+    );
+    def_op_no_mut!(
+        recv_clr,
+        meta_recv_clr,
+        OpFlags::I | OpFlags::A | OpFlags::T,
+        "Receives a plaintext message."
+    );
+    def_op_no_mut!(
         ad,
         meta_ad,
         OpFlags::A,
         "Mixes associated data into the internal state."
     );
-    def_op_opt_return!(
+    def_op_no_mut!(
         key,
         meta_key,
         OpFlags::A | OpFlags::C,

@@ -1,15 +1,12 @@
 use crate::{
     prelude::*,
-    strobe::{OpFlags, SecParam, Strobe},
+    strobe::{SecParam, Strobe},
 };
 
-use std::{fs::File, path::Path};
+use std::{boxed::Box, fs::File, path::Path};
 
 use hex;
-use serde::{
-    Deserialize, Deserializer,
-    de::Error as SError,
-};
+use serde::{de::Error as SError, Deserialize, Deserializer};
 use serde_json;
 
 #[derive(Deserialize)]
@@ -67,33 +64,76 @@ where
     state_from_hex(deserializer).map(|v| Some(v))
 }
 
-// Need this because we use Strobe::operate directly
-fn get_flags(op_name: &str) -> OpFlags {
-    match op_name {
-        "AD"       => OpFlags::A,
-        "KEY"      => OpFlags::A|OpFlags::C,
-        "PRF"      => OpFlags::I|OpFlags::A|OpFlags::C,
-        "send_CLR" => OpFlags::A|OpFlags::T,
-        "recv_CLR" => OpFlags::I|OpFlags::A|OpFlags::T,
-        "send_ENC" => OpFlags::A|OpFlags::C|OpFlags::T,
-        "recv_ENC" => OpFlags::I|OpFlags::A|OpFlags::C|OpFlags::T,
-        "send_MAC" => OpFlags::C|OpFlags::T,
-        "recv_MAC" => OpFlags::I|OpFlags::C|OpFlags::T,
-        "RATCHET"  => OpFlags::C,
-        _ => panic!("Unexpected op name: {}", op_name),
-    }
+enum DataOrLength<'a> {
+    Data(&'a mut [u8]),
+    Length(usize),
+}
+
+fn get_op(op_name: String, meta: bool) -> Box<for<'a> Fn(&mut Strobe, DataOrLength<'a>, bool)> {
+    let f = move |s: &mut Strobe, dol: DataOrLength, more: bool| {
+        let data = match dol {
+            DataOrLength::Length(len) => {
+                if !meta {
+                    s.ratchet(len, more);
+                    return;
+                } else {
+                    s.meta_ratchet(len, more);
+                    return;
+                }
+            }
+            DataOrLength::Data(data) => data,
+        };
+
+
+        // Note: we don't expect recv_MAC to work on random inputs. We test recv_MAC's
+        // correctness in strobe.rs
+        if !meta {
+            match op_name.as_str() {
+                "AD" => s.ad(data, more),
+                "KEY" => s.key(data, more),
+                "PRF" => s.prf(data, more),
+                "send_CLR" => s.send_clr(data, more),
+                "recv_CLR" => s.recv_clr(data, more),
+                "send_ENC" => s.send_enc(data, more),
+                "recv_ENC" => s.recv_enc(data, more),
+                "send_MAC" => s.send_mac(data, more),
+                "recv_MAC" => s.recv_mac(data, more).unwrap_or(()),
+                "RATCHET" => unimplemented!(),
+                _ => panic!("Unexpected op name: {}", op_name),
+            }
+        } else {
+            match op_name.as_str() {
+                "AD" => s.meta_ad(data, more),
+                "KEY" => s.meta_key(data, more),
+                "PRF" => s.meta_prf(data, more),
+                "send_CLR" => s.meta_send_clr(data, more),
+                "recv_CLR" => s.meta_recv_clr(data, more),
+                "send_ENC" => s.meta_send_enc(data, more),
+                "recv_ENC" => s.meta_recv_enc(data, more),
+                "send_MAC" => s.meta_send_mac(data, more),
+                "recv_MAC" => s.meta_recv_mac(data, more).unwrap_or(()),
+                "RATCHET" => unimplemented!(),
+                _ => panic!("Unexpected op name: {}", op_name),
+            }
+        }
+    };
+    Box::new(f)
 }
 
 fn test_against_vector<P: AsRef<Path>>(filename: P) {
     let file = File::open(filename).unwrap();
-    let TestHead { proto_string, security, operations } = serde_json::from_reader(file).unwrap();
-    let mut s = Strobe::new(proto_string.as_bytes().to_vec(), security);
+    let TestHead {
+        proto_string,
+        security,
+        operations,
+    } = serde_json::from_reader(file).unwrap();
+    let mut s = Strobe::new(proto_string.as_bytes(), security);
 
     for test_op in operations.into_iter() {
         let TestOp {
             name,
             meta,
-            input_data,
+            mut input_data,
             stream,
             expected_output,
             expected_state_after,
@@ -102,22 +142,22 @@ fn test_against_vector<P: AsRef<Path>>(filename: P) {
         if name == "init" {
             assert_eq!(&s.st.0[..], expected_state_after.as_slice());
         } else {
-            let mut flags = get_flags(&*name);
-            if meta {
-                flags = flags | OpFlags::M;
-            }
-            let output: Option<Vec<u8>> = match s.operate(flags, input_data, stream) {
-                Ok(o) => o,
-                // We don't expect recv_MAC to work on random inputs. We test recv_MAC's
-                // correctness in strobe.rs
-                Err(_auth_err) => None
+            let input = if &name == "RATCHET" {
+                DataOrLength::Length(input_data.len())
+            } else {
+                DataOrLength::Data(input_data.as_mut_slice())
             };
+
+            let op = get_op(name.clone(), meta);
+            op(&mut s, input, stream);
 
             assert_eq!(&s.st.0[..], expected_state_after.as_slice());
 
             // Only test expected output if the test vector has output to test against
             if let Some(eo) = expected_output {
-                assert_eq!(output.unwrap(), eo);
+                // The input was presumably mutated;
+                let output = input_data.as_slice();
+                assert_eq!(output, eo.as_slice());
             }
         }
     }
