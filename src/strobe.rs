@@ -268,12 +268,12 @@ impl Strobe {
     /// `Strobe::squeeze`. It's like `squeeze` in that we assume we've been given all zeros as
     /// input, and like `overwrite` in that we do not mutate (or take) any input.
     fn zero_state(&mut self, mut bytes_to_zero: usize) {
-        static ZEROS: [u8; 8*KECCAK_BLOCK_SIZE] = [0u8; 8*KECCAK_BLOCK_SIZE];
+        static ZEROS: [u8; 8 * KECCAK_BLOCK_SIZE] = [0u8; 8 * KECCAK_BLOCK_SIZE];
 
         // Do the zero-writing in chunks
         while bytes_to_zero > 0 {
-            let slice_len = std::cmp::min(self.rate - self.pos, bytes_to_zero);
-            self.st.0[self.pos..(self.pos+slice_len)].copy_from_slice(&ZEROS[..slice_len]);
+            let slice_len = core::cmp::min(self.rate - self.pos, bytes_to_zero);
+            self.st.0[self.pos..(self.pos + slice_len)].copy_from_slice(&ZEROS[..slice_len]);
 
             self.pos += slice_len;
             bytes_to_zero -= slice_len;
@@ -312,10 +312,7 @@ impl Strobe {
 
     // TODO?: Keep track of cur_flags and assert they don't change when `more` is set
     pub(crate) fn operate(&mut self, flags: OpFlags, data: &mut [u8], more: bool) {
-        assert!(
-            !flags.contains(OpFlags::K),
-            "Op flag K not implemented"
-        );
+        assert!(!flags.contains(OpFlags::K), "Op flag K not implemented");
 
         if !more {
             self.begin_op(flags);
@@ -335,10 +332,7 @@ impl Strobe {
     }
 
     pub(crate) fn operate_no_mutate(&mut self, flags: OpFlags, data: &[u8], more: bool) {
-        assert!(
-            !flags.contains(OpFlags::K),
-            "Op flag K not implemented"
-        );
+        assert!(!flags.contains(OpFlags::K), "Op flag K not implemented");
 
         if !more {
             self.begin_op(flags);

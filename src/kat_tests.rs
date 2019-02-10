@@ -84,7 +84,6 @@ fn get_op(op_name: String, meta: bool) -> Box<for<'a> Fn(&mut Strobe, DataOrLeng
             DataOrLength::Data(data) => data,
         };
 
-
         // Note: we don't expect recv_MAC to work on random inputs. We test recv_MAC's
         // correctness in strobe.rs
         if !meta {
