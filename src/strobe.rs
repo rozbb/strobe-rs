@@ -3,9 +3,7 @@ use crate::{
     prelude::*,
 };
 
-// The bitflags import is so ugly because these are all macros and bitflags hasn't been updated to
-// use Rust 2018
-use bitflags::{__bitflags, __impl_bitflags, bitflags};
+use bitflags::bitflags;
 use subtle::{self, ConstantTimeEq};
 
 /// Version of Strobe that this crate implements.
@@ -49,12 +47,9 @@ pub struct AuthError;
 ///
 /// Description of method input
 /// ---------------------------
-/// Most operations exposed by `Strobe` take the same set of inputs. Some inputs are not
-/// meaningful in some contexts. Again, see the specification for more info. The arguments are
+/// Most operations exposed by `Strobe` take the same set of inputs. The arguments are
 ///
 /// * `data` - The input data to the operation.
-/// * `metadata` - An optional tuple containing meta-operation flags and metadata info. See spec
-///                for more info.
 /// * `more` - Whether or not you want to add more input to the previous operation. For example:
 ///
 /// ```rust
@@ -86,51 +81,41 @@ pub struct Strobe {
     pub sec: SecParam,
     /// This is the `R` parameter in the Strobe spec
     pub rate: usize,
-    /// Indices into `st`
+    /// Index into `st`
     pos: usize,
+    /// Index into `st`
     pos_begin: usize,
     /// Represents whether we're a sender or a receiver or uninitialized
     is_receiver: Option<bool>,
 }
 
-// Most methods return some bytes and cannot error. This macro is for those methods.
-macro_rules! def_op {
+// This defines an operation and meta-operation that mutates its input
+macro_rules! def_op_mut {
     ($name:ident, $meta_name:ident, $flags:expr, $doc_str:expr) => (
         #[doc = $doc_str]
-        pub fn $name(
-            &mut self,
-            data: &mut [u8],
-            more: bool,
-        ) {
-
+        pub fn $name(&mut self, data: &mut [u8], more: bool) {
             let flags = $flags;
             self.operate(flags, data, more);
         }
 
-        pub fn $meta_name(
-            &mut self,
-            data: &mut [u8],
-            more: bool,
-        ) {
-
+        #[doc = $doc_str]
+        pub fn $meta_name(&mut self, data: &mut [u8], more: bool) {
             let flags = $flags | OpFlags::M;
             self.operate(flags, data, more);
         }
     )
 }
 
-// Some methods will only return bytes if metadata was given. This macro is for those methods.
+// This defines an operation and meta-operation that does not mutate its input
 macro_rules! def_op_no_mut {
     ($name:ident, $meta_name:ident, $flags:expr, $doc_str:expr) => (
         #[doc = $doc_str]
-        ///
-        /// Takes input as normal. This will return a value if and only if metadata is supplied in
-        /// the input.
         pub fn $name(&mut self, data: &[u8], more: bool) {
             let flags = $flags;
             self.operate_no_mutate(flags, data, more);
         }
 
+        #[doc = $doc_str]
         pub fn $meta_name(&mut self, data: &[u8], more: bool) {
             let flags = $flags | OpFlags::M;
             self.operate_no_mutate(flags, data, more);
@@ -181,6 +166,7 @@ impl Strobe {
         )
     }
 
+    // Runs the permutation function on the internal state
     fn run_f(&mut self) {
         self.st.0[self.pos] ^= self.pos_begin as u8;
         self.st.0[self.pos + 1] ^= 0x04;
@@ -204,7 +190,7 @@ impl Strobe {
         }
     }
 
-    /// XORs the given data into the state, then set the data equal the state.  This is a special
+    /// XORs the given data into the state, then sets the data equal the state.  This is a special
     /// case of the `duplex` code in the STROBE paper.
     fn absorb_and_set(&mut self, data: &mut [u8]) {
         for b in data {
@@ -248,8 +234,8 @@ impl Strobe {
     }
 
     /// Copies the state into the given buffer and sets the state to 0. This is a special case of
-    /// `Strobe::exchange`, where `data` is assumed to be the all-zeros string (which is the case
-    /// for the PRF operation).
+    /// `Strobe::exchange`, where `data` is assumed to be the all-zeros string. This is precisely
+    /// the case when the current operation is PRF.
     fn squeeze(&mut self, data: &mut [u8]) {
         for b in data {
             let state_byte = self.st.0.get_mut(self.pos).unwrap();
@@ -264,7 +250,7 @@ impl Strobe {
     }
 
     /// Overwrites the state with a specified number of zeros. This is a special case of
-    /// `Strobe::exchange`, and more specifically, it's a special case of `Strobe::overwrite` and
+    /// `Strobe::exchange`. More specifically, it's a special case of `Strobe::overwrite` and
     /// `Strobe::squeeze`. It's like `squeeze` in that we assume we've been given all zeros as
     /// input, and like `overwrite` in that we do not mutate (or take) any input.
     fn zero_state(&mut self, mut bytes_to_zero: usize) {
@@ -284,6 +270,8 @@ impl Strobe {
         }
     }
 
+    /// Mixes the current state index and flags into the state, accounting for whether we are
+    /// sending or receiving
     fn begin_op(&mut self, mut flags: OpFlags) {
         if flags.contains(OpFlags::T) {
             let is_op_receiving = flags.contains(OpFlags::I);
@@ -311,6 +299,9 @@ impl Strobe {
     }
 
     // TODO?: Keep track of cur_flags and assert they don't change when `more` is set
+    /// Performs the state / data transformation that corresponds to the given flags. If `more` is
+    /// given, this will treat `data` as a continuation of the data given in the previous
+    /// call to `operate`.
     pub(crate) fn operate(&mut self, flags: OpFlags, data: &mut [u8], more: bool) {
         assert!(!flags.contains(OpFlags::K), "Op flag K not implemented");
 
@@ -320,17 +311,26 @@ impl Strobe {
 
         // TODO?: Assert that input is empty under some flag conditions
         if flags.contains(OpFlags::C) && flags.contains(OpFlags::T) && !flags.contains(OpFlags::I) {
+            // This is equivalent to the `duplex` operation in the Python implementation, with
+            // `cafter = True`
             self.absorb_and_set(data);
         } else if flags == OpFlags::I | OpFlags::A | OpFlags::C {
-            // This is PRF. Use squeeze() instead of exchange()
+            // Special case of case below. This is PRF. Use `squeeze` instead of `exchange`.
             self.squeeze(data);
         } else if flags.contains(OpFlags::C) {
+            // This is equivalent to the `duplex` operation in the Python implementation, with
+            // `cbefore = True`
             self.exchange(data);
         } else {
-            self.absorb(data);
-        };
+            // This should normally call `absorb`, but `absorb` does not mutate, so the implementor
+            // should have used operate_no_mutate instead
+            panic!("operate should not be called for operations that do not require mutation");
+        }
     }
 
+    /// Performs the state transformation that corresponds to the given flags. If `more` is given,
+    /// this will treat `data` as a continuation of the data given in the previous call to
+    /// `operate`. This uses non-mutating variants of the specializations of the `duplex` function.
     pub(crate) fn operate_no_mutate(&mut self, flags: OpFlags, data: &[u8], more: bool) {
         assert!(!flags.contains(OpFlags::K), "Op flag K not implemented");
 
@@ -338,115 +338,133 @@ impl Strobe {
             self.begin_op(flags);
         }
 
-        if flags.contains(OpFlags::C) {
-            // Use the non-mutable version of exchange()
+        // There are no non-mutating variants of things with flags & (C | T | I) == C | T
+        if flags.contains(OpFlags::C) && flags.contains(OpFlags::T) && !flags.contains(OpFlags::I) {
+            panic!("operate_no_mutate called on something that requires mutation");
+        } else if flags.contains(OpFlags::C) {
+            // This is equivalent to a non-mutating form of the `duplex` operation in the Python
+            // implementation, with `cbefore = True`
             self.overwrite(data);
         } else {
+            // This is equivalent to the `duplex` operation in the Python implementation, with
+            // `cbefore = cafter = False`
             self.absorb(data);
         };
     }
 
-    // This is separately defined because it's the only method that can return a `Result`
+    // This is separately defined because it's the only method that can return a `Result`. See docs
+    // for recv_mac and meta_recv_mac.
+    #[must_use]
+    fn generalized_recv_mac(
+        &mut self,
+        data: &mut [u8],
+        more: bool,
+        is_meta: bool,
+    ) -> Result<(), AuthError> {
+        // These are the (meta_)recv_mac flags
+        let flags = if is_meta {
+            OpFlags::I | OpFlags::C | OpFlags::T | OpFlags::M
+        } else {
+            OpFlags::I | OpFlags::C | OpFlags::T
+        };
+        self.operate(flags, data, more);
+
+        // Constant-time MAC check. This accumulates the truth values of byte == 0
+        let mut all_zero = subtle::Choice::from(1u8);
+        for b in data {
+            all_zero = all_zero & b.ct_eq(&0u8);
+        }
+
+        if all_zero.unwrap_u8() != 1 {
+            Err(AuthError)
+        } else {
+            Ok(())
+        }
+    }
+
     /// Attempts to authenticate the current state against the given MAC. On failure, it returns an
     /// `AuthError`. It behooves the user of this library to check this return value and overreact
     /// on error.
     #[must_use]
     pub fn recv_mac(&mut self, data: &mut [u8], more: bool) -> Result<(), AuthError> {
-        let flags = OpFlags::I | OpFlags::C | OpFlags::T;
-        self.operate(flags, data, more);
-
-        // Constant-time MAC check. This accumulates the truth values of byte == 0
-        let mut all_zero = subtle::Choice::from(1u8);
-        for b in data {
-            all_zero = all_zero & b.ct_eq(&0u8);
-        }
-
-        if all_zero.unwrap_u8() != 1 {
-            Err(AuthError)
-        } else {
-            Ok(())
-        }
+        self.generalized_recv_mac(data, more, /* is_meta */ false)
     }
 
-    // This is separately defined because it's the only method that can return a `Result`
     /// Attempts to authenticate the current state against the given MAC. On failure, it returns an
     /// `AuthError`. It behooves the user of this library to check this return value and overreact
     /// on error.
     #[must_use]
     pub fn meta_recv_mac(&mut self, data: &mut [u8], more: bool) -> Result<(), AuthError> {
-        let flags = OpFlags::I | OpFlags::C | OpFlags::T | OpFlags::M;
-        self.operate(flags, data, more);
+        self.generalized_recv_mac(data, more, /* is_meta */ true)
+    }
 
-        // Constant-time MAC check. This accumulates the truth values of byte == 0
-        let mut all_zero = subtle::Choice::from(1u8);
-        for b in data {
-            all_zero = all_zero & b.ct_eq(&0u8);
-        }
-
-        if all_zero.unwrap_u8() != 1 {
-            Err(AuthError)
+    // This is separately defined because it's the only method that takes an integer and returns an
+    // Option<Vec<u8>>.
+    fn generalized_ratchet(&mut self, num_bytes_to_zero: usize, more: bool, is_meta: bool) {
+        // These are the (meta_)ratchet flags
+        let flags = if is_meta {
+            OpFlags::C | OpFlags::M
         } else {
-            Ok(())
+            OpFlags::C
+        };
+
+        // We don't make an `operate` call, since this is a super special case. That means we have
+        // to make the `begin_op` call manually.
+        if !more {
+            self.begin_op(flags);
         }
+        self.zero_state(num_bytes_to_zero);
     }
 
-    // This is separately defined because it's the only method that takes an integer and returns an
-    // Option<Vec<u8>>.
     /// Ratchets the internal state forward in an irreversible way by zeroing bytes.
     ///
     /// Takes a `usize` argument specifying the number of bytes of public state to zero. If the
     /// size exceeds `self.rate`, Keccak-f will be called before more bytes are zeroed.
-    pub fn ratchet(&mut self, bytes_to_zero: usize, more: bool) {
-        let flags = OpFlags::C;
-
-        if !more {
-            self.begin_op(flags);
-        }
-        self.zero_state(bytes_to_zero);
+    pub fn ratchet(&mut self, num_bytes_to_zero: usize, more: bool) {
+        self.generalized_ratchet(num_bytes_to_zero, more, /* is_meta */ false)
     }
 
-    // This is separately defined because it's the only method that takes an integer and returns an
-    // Option<Vec<u8>>.
     /// Ratchets the internal state forward in an irreversible way by zeroing bytes.
     ///
     /// Takes a `usize` argument specifying the number of bytes of public state to zero. If the
     /// size exceeds `self.rate`, Keccak-f will be called before more bytes are zeroed.
-    pub fn meta_ratchet(&mut self, bytes_to_zero: usize, more: bool) {
-        let flags = OpFlags::C | OpFlags::M;
-
-        if !more {
-            self.begin_op(flags);
-        }
-        self.zero_state(bytes_to_zero);
+    pub fn meta_ratchet(&mut self, num_bytes_to_zero: usize, more: bool) {
+        self.generalized_ratchet(num_bytes_to_zero, more, /* is_meta */ true)
     }
 
+    //
     // These operations mutate their inputs
-    def_op!(
+    //
+
+    def_op_mut!(
         send_enc,
         meta_send_enc,
         OpFlags::A | OpFlags::C | OpFlags::T,
         "Sends an encrypted message."
     );
-    def_op!(
+    def_op_mut!(
         recv_enc,
         meta_recv_enc,
         OpFlags::I | OpFlags::A | OpFlags::C | OpFlags::T,
         "Receives an encrypted message."
     );
-    def_op!(
+    def_op_mut!(
         send_mac,
         meta_send_mac,
         OpFlags::C | OpFlags::T,
         "Sends a MAC of the internal state."
     );
-    def_op!(
+    def_op_mut!(
         prf,
         meta_prf,
         OpFlags::I | OpFlags::A | OpFlags::C,
         "Extracts pseudorandom data as a function of the internal state."
     );
 
+    //
     // These operations do not mutate their inputs
+    //
+
     def_op_no_mut!(
         send_clr,
         meta_send_clr,

@@ -22,6 +22,8 @@ pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
 }
 
 /// Performs the keccakf\[1600\] permutation on a byte buffer
+// If we're not little-endian, we can't perform the above optimization. Make a little-endian copy,
+// do the operation, then copy the bytes back.
 #[cfg(not(target_endian = "little"))]
 pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
     let mut keccak_block = [0u64; KECCAK_BLOCK_SIZE];
@@ -31,12 +33,12 @@ pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
 }
 
 /*
-    # The Python 2 code used to generate this test vector is below. For more information on how to
-    # get this code running, look at the comment at the top # of `basic_tests.rs`
-    from Strobe.Keccak import KeccakF
-    k = KeccakF()
-    out = k([0]*200)
-    print("[{}]".format(', '.join(map("0x{:02x}".format, out))))
+# The Python 2 code used to generate this test vector is below. For more information on how to
+# get this code running, look at the comment at the top # of `basic_tests.rs`
+from Strobe.Keccak import KeccakF
+k = KeccakF()
+out = k([0]*200)
+print("[{}]".format(', '.join(map("0x{:02x}".format, out))))
 */
 #[test]
 fn zero_keccak() {

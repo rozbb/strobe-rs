@@ -12,6 +12,7 @@ extern crate alloc;
 
 //-------- Testing stuff --------//
 
+#[cfg(test)]
 mod basic_tests;
 
 // kat_tests requires std and also serde. This is a proc macro so we still need extern crate

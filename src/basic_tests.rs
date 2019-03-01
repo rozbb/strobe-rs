@@ -6,7 +6,6 @@
      3. Run `python2 FILE`
 */
 
-#[cfg(test)]
 use crate::{
     keccak::KECCAK_BLOCK_SIZE,
     prelude::*,
@@ -14,12 +13,12 @@ use crate::{
 };
 
 /*
-    # The Python 2 code used to generate this test vector:
-    import sys
-    sys.path.insert(0, "./orig-strobe/python")
-    from Strobe.Strobe import Strobe
-    s = Strobe("", security=128)
-    print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
+# The Python 2 code used to generate this test vector:
+import sys
+sys.path.insert(0, "./orig-strobe/python")
+from Strobe.Strobe import Strobe
+s = Strobe("", security=128)
+print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
 #[test]
 fn test_init_128() {
@@ -46,12 +45,12 @@ fn test_init_128() {
 }
 
 /*
-    # The Python 2 code used to generate this test vector:
-    import sys
-    sys.path.insert(0, "./orig-strobe/python")
-    from Strobe.Strobe import Strobe
-    s = Strobe("", security=256)
-    print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
+# The Python 2 code used to generate this test vector:
+import sys
+sys.path.insert(0, "./orig-strobe/python")
+from Strobe.Strobe import Strobe
+s = Strobe("", security=256)
+print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
 #[test]
 fn test_init_256() {
@@ -78,25 +77,25 @@ fn test_init_256() {
 }
 
 /*
-    # The Python 2 code used to generate this test vector:
-    import sys
-    sys.path.insert(0, "./orig-strobe/python")
-    from Strobe.Strobe import Strobe
-    s = Strobe("seqtest", security=256)
+# The Python 2 code used to generate this test vector:
+import sys
+sys.path.insert(0, "./orig-strobe/python")
+from Strobe.Strobe import Strobe
+s = Strobe("seqtest", security=256)
 
-    s.prf(10)
-    s.ad("Hello")
-    s.send_enc("World")
-    s.send_clr("foo")
-    s.ratchet()
-    s.recv_clr("bar")
-    s.recv_enc("baz")
-    for i in xrange(100):
-        s.send_enc("X"*i)
-    s.prf(123)
-    s.send_mac()
+s.prf(10)
+s.ad("Hello")
+s.send_enc("World")
+s.send_clr("foo")
+s.ratchet()
+s.recv_clr("bar")
+s.recv_enc("baz")
+for i in xrange(100):
+    s.send_enc("X"*i)
+s.prf(123)
+s.send_mac()
 
-    print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
+print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
 #[test]
 fn test_seq() {
@@ -150,19 +149,19 @@ fn test_seq() {
 }
 
 /*
-    # The Python 2 code used to generate these test vectors:
-    import sys
-    sys.path.insert(0, "./orig-strobe/python")
-    from Strobe.Strobe import Strobe
-    I,A,C,T,M,K = 1<<0, 1<<1, 1<<2, 1<<3, 1<<4, 1<<5
-    s = Strobe("metadatatest", security=256)
+# The Python 2 code used to generate these test vectors:
+import sys
+sys.path.insert(0, "./orig-strobe/python")
+from Strobe.Strobe import Strobe
+I,A,C,T,M,K = 1<<0, 1<<1, 1<<2, 1<<3, 1<<4, 1<<5
+s = Strobe("metadatatest", security=256)
 
-    m = s.key("key", meta_flags=A|T|M, metadata="meta1")
-    m += s.prf(10, meta_flags=I|A|C|M, metadata=10)
-    m += s.send_enc("pt", meta_flags=A|T|M, metadata="meta3")
+m = s.key("key", meta_flags=A|T|M, metadata="meta1")
+m += s.prf(10, meta_flags=I|A|C|M, metadata=10)
+m += s.send_enc("pt", meta_flags=A|T|M, metadata="meta3")
 
-    print("accumulated metadata == [{}]".format(', '.join(map("0x{:02x}".format, m))))
-    print("state == [{}]".format(', '.join(map("0x{:02x}".format, s.st))))
+print("accumulated metadata == [{}]".format(', '.join(map("0x{:02x}".format, m))))
+print("state == [{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
 #[test]
 fn test_metadata() {

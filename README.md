@@ -15,24 +15,30 @@ is the largest possible block size, so big deal.
 Example
 -------
 
-A simple program that encrypts and decrypts a message:
+A simple [program](examples/basic.rs) that encrypts and decrypts a message:
 
 ```rust
-extern crate strobe_rs;
 use strobe_rs::{SecParam, Strobe};
 
 fn main() {
-    let orig_msg = b"Hello there".to_vec();
-    let mut rx = Strobe::new(b"correctnesstest".to_vec(), SecParam::B256);
-    let mut tx = Strobe::new(b"correctnesstest".to_vec(), SecParam::B256);
+    let mut rx = Strobe::new(b"correctnesstest", SecParam::B256);
+    let mut tx = Strobe::new(b"correctnesstest", SecParam::B256);
 
-    rx.key(b"the-combination-on-my-luggage".to_vec(), None, false);
-    tx.key(b"the-combination-on-my-luggage".to_vec(), None, false);
+    rx.key(b"the-combination-on-my-luggage", false);
+    tx.key(b"the-combination-on-my-luggage", false);
 
-    let ciphertext = rx.send_enc(orig_msg.clone(), None, false);
-    let decrypted_msg = tx.recv_enc(ciphertext, None, false);
+    let mut msg = b"Attack at dawn".to_vec();
+    rx.send_enc(msg.as_mut_slice(), false);
 
-    assert_eq!(orig_msg, decrypted_msg);
+    // Rename for clarity. `msg` has been encrypted in-place.
+    let mut ciphertext = msg;
+
+    tx.recv_enc(ciphertext.as_mut_slice(), false);
+
+    // And back again.
+    let round_trip_msg = ciphertext;
+
+    assert_eq!(&round_trip_msg, b"Attack at dawn");
 }
 ```
 
@@ -40,8 +46,8 @@ TODO
 ----
 
 * Add benchmarks
-* Contribute an asm impelmentation of Keccak-f\[1600\] to tiny-keccak and expose a feature flag that lets
-  `strobe-rs` users choose which implementation they prefer.
+* Contribute an asm impelmentation of Keccak-f\[1600\] to tiny-keccak and expose a feature flag that
+  lets `strobe-rs` users choose which implementation they prefer.
 * Put more asserts in the code like the Python implementation does. Not sure if this is a great idea
   though
 

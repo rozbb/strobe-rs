@@ -9,6 +9,7 @@ use hex;
 use serde::{de::Error as SError, Deserialize, Deserializer};
 use serde_json;
 
+// This is the top-level structure of the JSON we find in the test vectors
 #[derive(Deserialize)]
 struct TestHead {
     proto_string: String,
@@ -17,6 +18,7 @@ struct TestHead {
     operations: Vec<TestOp>,
 }
 
+// Each individual test case looks like this
 #[derive(Deserialize)]
 struct TestOp {
     name: String,
@@ -30,6 +32,7 @@ struct TestOp {
     expected_state_after: Vec<u8>,
 }
 
+// Tells serde how to deserialize a `SecParam`
 fn sec_param_from_bits<'de, D: Deserializer<'de>>(deserializer: D) -> Result<SecParam, D::Error>
 where
     D: Deserializer<'de>,
@@ -42,6 +45,7 @@ where
     }
 }
 
+// Tells serde how to deserialize keccak state from its hex representation
 fn state_from_hex<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
 where
     D: Deserializer<'de>,
@@ -56,7 +60,7 @@ where
 
 // This function is a formality. Some fields are not present, so they're wrapped in Option in the
 // above structs. Hence, the deserialization function must return an Option. The `default` pragma
-// on the members ensure, however, that the value is None when the field is missing.
+// on the members ensures, however, that the value is None when the field is missing.
 fn state_from_hex_opt<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
 where
     D: Deserializer<'de>,
@@ -64,19 +68,26 @@ where
     state_from_hex(deserializer).map(|v| Some(v))
 }
 
+// Recall that `ratchet` can take a length argument, so this is the most general type that
+// represents the input to a STROBE operation
 enum DataOrLength<'a> {
     Data(&'a mut [u8]),
     Length(usize),
 }
 
+// Given the name of the operation and meta flag, returns a closure that performs this operation.
+// The types are kind of a mess, because the input and output types of the closure have to fit all
+// possible STROBE operations.
 fn get_op(op_name: String, meta: bool) -> Box<for<'a> Fn(&mut Strobe, DataOrLength<'a>, bool)> {
     let f = move |s: &mut Strobe, dol: DataOrLength, more: bool| {
         let data = match dol {
             DataOrLength::Length(len) => {
                 if !meta {
+                    assert_eq!(op_name.as_str(), "RATCHET", "Got length input without RATCHET op");
                     s.ratchet(len, more);
                     return;
                 } else {
+                    assert_eq!(op_name.as_str(), "RATCHET", "Got length input without RATCHET op");
                     s.meta_ratchet(len, more);
                     return;
                 }
@@ -97,7 +108,7 @@ fn get_op(op_name: String, meta: bool) -> Box<for<'a> Fn(&mut Strobe, DataOrLeng
                 "recv_ENC" => s.recv_enc(data, more),
                 "send_MAC" => s.send_mac(data, more),
                 "recv_MAC" => s.recv_mac(data, more).unwrap_or(()),
-                "RATCHET" => unimplemented!(),
+                "RATCHET" => panic!("Got RATCHET op without length input"),
                 _ => panic!("Unexpected op name: {}", op_name),
             }
         } else {
@@ -111,7 +122,7 @@ fn get_op(op_name: String, meta: bool) -> Box<for<'a> Fn(&mut Strobe, DataOrLeng
                 "recv_ENC" => s.meta_recv_enc(data, more),
                 "send_MAC" => s.meta_send_mac(data, more),
                 "recv_MAC" => s.meta_recv_mac(data, more).unwrap_or(()),
-                "RATCHET" => unimplemented!(),
+                "RATCHET" => panic!("Got RATCHET op without length input"),
                 _ => panic!("Unexpected op name: {}", op_name),
             }
         }
@@ -119,6 +130,7 @@ fn get_op(op_name: String, meta: bool) -> Box<for<'a> Fn(&mut Strobe, DataOrLeng
     Box::new(f)
 }
 
+// Runs the test vector and compares to the expected output at each step of the way
 fn test_against_vector<P: AsRef<Path>>(filename: P) {
     let file = File::open(filename).unwrap();
     let TestHead {
@@ -141,6 +153,8 @@ fn test_against_vector<P: AsRef<Path>>(filename: P) {
         if name == "init" {
             assert_eq!(&s.st.0[..], expected_state_after.as_slice());
         } else {
+            // RATCHET inputs are given as strings of zeros instead of lengths. So just take the
+            // length of the string of zeros.
             let input = if &name == "RATCHET" {
                 DataOrLength::Length(input_data.len())
             } else {
