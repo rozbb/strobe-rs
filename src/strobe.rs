@@ -205,6 +205,19 @@ impl Strobe {
         }
     }
 
+    /// Copies the internal state into the given buffer. This is a special case of `absorb_and_set`
+    /// where `data` is all zeros.
+    fn copy_state(&mut self, data: &mut [u8]) {
+        for b in data {
+            *b = self.st.0[self.pos];
+
+            self.pos += 1;
+            if self.pos == self.rate {
+                self.run_f();
+            }
+        }
+    }
+
     /// Overwrites the state with the given data while XORing the given data with the old state.
     /// This is a special case of the `duplex` code in the STROBE paper.
     fn exchange(&mut self, data: &mut [u8]) {
@@ -309,11 +322,19 @@ impl Strobe {
             self.begin_op(flags);
         }
 
+        // Meta-ness is only relevant for `begin_op`. Remove it to simplify the below logic.
+        let flags = flags & !OpFlags::M;
+
         // TODO?: Assert that input is empty under some flag conditions
         if flags.contains(OpFlags::C) && flags.contains(OpFlags::T) && !flags.contains(OpFlags::I) {
             // This is equivalent to the `duplex` operation in the Python implementation, with
             // `cafter = True`
-            self.absorb_and_set(data);
+            if flags == OpFlags::C | OpFlags::T {
+                // This is `send_mac`. Pretend the input is all zeros
+                self.copy_state(data)
+            } else {
+                self.absorb_and_set(data);
+            }
         } else if flags == OpFlags::I | OpFlags::A | OpFlags::C {
             // Special case of case below. This is PRF. Use `squeeze` instead of `exchange`.
             self.squeeze(data);
@@ -398,8 +419,8 @@ impl Strobe {
         self.generalized_recv_mac(data, more, /* is_meta */ true)
     }
 
-    // This is separately defined because it's the only method that takes an integer and returns an
-    // Option<Vec<u8>>.
+    // This is separately defined because it's the only method that takes an integer and mutates
+    // its input
     fn generalized_ratchet(&mut self, num_bytes_to_zero: usize, more: bool, is_meta: bool) {
         // These are the (meta_)ratchet flags
         let flags = if is_meta {
@@ -452,13 +473,15 @@ impl Strobe {
         send_mac,
         meta_send_mac,
         OpFlags::C | OpFlags::T,
-        "Sends a MAC of the internal state."
+        "Sends a MAC of the internal state. \
+         The output is independent of the initial contents of the input buffer."
     );
     def_op_mut!(
         prf,
         meta_prf,
         OpFlags::I | OpFlags::A | OpFlags::C,
-        "Extracts pseudorandom data as a function of the internal state."
+        "Extracts pseudorandom data as a function of the internal state. \
+         The output is independent of the initial contents of the input buffer."
     );
 
     //
