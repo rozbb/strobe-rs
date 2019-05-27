@@ -375,7 +375,6 @@ impl Strobe {
 
     // This is separately defined because it's the only method that can return a `Result`. See docs
     // for recv_mac and meta_recv_mac.
-    #[must_use]
     fn generalized_recv_mac(
         &mut self,
         data: &mut [u8],
@@ -406,7 +405,6 @@ impl Strobe {
     /// Attempts to authenticate the current state against the given MAC. On failure, it returns an
     /// `AuthError`. It behooves the user of this library to check this return value and overreact
     /// on error.
-    #[must_use]
     pub fn recv_mac(&mut self, data: &mut [u8], more: bool) -> Result<(), AuthError> {
         self.generalized_recv_mac(data, more, /* is_meta */ false)
     }
@@ -414,7 +412,6 @@ impl Strobe {
     /// Attempts to authenticate the current state against the given MAC. On failure, it returns an
     /// `AuthError`. It behooves the user of this library to check this return value and overreact
     /// on error.
-    #[must_use]
     pub fn meta_recv_mac(&mut self, data: &mut [u8], more: bool) -> Result<(), AuthError> {
         self.generalized_recv_mac(data, more, /* is_meta */ true)
     }
