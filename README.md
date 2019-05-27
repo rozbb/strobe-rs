@@ -39,6 +39,14 @@ fn main() {
 }
 ```
 
+Features
+--------
+
+* This crate does support `no_std`. However, the `std` feature is enabled by default.
+* A `nightly` feature is also supported and disabled by default. This currently just forwards to [`subtle`](https://github.com/dalek-cryptography/subtle)'s `nightly` feature.
+
+For info on how to omit or include feature flags, see the [cargo docs on features](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features).
+
 Tests
 -----
 
