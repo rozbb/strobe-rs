@@ -5,10 +5,7 @@ strobe-rs
 [![Version](https://img.shields.io/crates/v/strobe-rs.svg)](https://crates.io/crates/strobe-rs)
 [![Docs](https://docs.rs/strobe-rs/badge.svg)](https://docs.rs/strobe-rs)
 
-This is a relatively barebones implementation of the [Strobe protocol framework][strobe] in pure
-Rust. It is intended to be used as a library to build other protocols and frameworks. This
-implementation currently only supports Keccak-f\[1600\] as the internal permutation function, which
-is the largest possible block size, so big deal.
+This is a relatively barebones implementation of the [Strobe protocol framework][strobe] in pure Rust. It is intended to be used as a library to build other protocols and frameworks. This implementation currently only supports Keccak-f\[1600\] as the internal permutation function, which is the largest possible block size, so big deal.
 
 [strobe]: https://strobe.sourceforge.io/
 
@@ -42,15 +39,22 @@ fn main() {
 }
 ```
 
+Tests
+-----
+
+To run tests, execute `cargo test`. This includes known-answer tests, which test against JSON-encoded test vectors in the [kat/](kat/) directory. To verify these test vectors against the reference Python implementation, `cd` into `kat/`, run `python2 kat/verify_test_vector.py` and follow the included instructions.
+
+Benchmarks
+----------
+
+Since benchmarks are still not stable, run `cargo +nightly bench`.
+
 TODO
 ----
 
-* Add benchmarks
 * Get code coverage information
-* Contribute an asm impelmentation of Keccak-f\[1600\] to tiny-keccak and expose a feature flag that
-  lets `strobe-rs` users choose which implementation they prefer.
-* Put more asserts in the code like the Python implementation does. Not sure if this is a great idea
-  though
+* Contribute an asm impelmentation of Keccak-f\[1600\] to tiny-keccak and expose a feature flag that lets `strobe-rs` users choose which implementation they prefer.
+* Put more asserts in the code like the Python implementation does. Not sure if this is a great idea though
 
 License
 -------
