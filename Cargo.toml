@@ -3,11 +3,12 @@ name = "strobe-rs"
 repository = "https://github.com/rozbb/strobe-rs"
 documentation = "https://docs.rs/strobe-rs"
 description = "An implementation of the Strobe protocol framework in pure Rust"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2018"
 authors = ["Michael Rosenberg <micro@fastmail.com>"]
 license = "MIT/Apache-2.0"
 keywords = ["crypto", "strobe", "protocol", "framework", "no_std"]
+categories = ["cryptography", "no-std"]
 
 [features]
 default = ["std"]
