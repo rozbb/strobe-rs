@@ -5,7 +5,7 @@ documentation = "https://docs.rs/strobe-rs"
 description = "An implementation of the Strobe protocol framework in pure Rust"
 version = "0.5.1"
 edition = "2018"
-authors = ["Michael Rosenberg <micro@fastmail.com>"]
+authors = ["Michael Rosenberg <michael@mrosenberg.pub>"]
 license = "MIT/Apache-2.0"
 keywords = ["crypto", "strobe", "protocol", "framework", "no_std"]
 categories = ["cryptography", "no-std"]
@@ -18,12 +18,12 @@ nightly = ["subtle/nightly"]
 # Setting the appropriate flags so these are all no_std
 
 [dependencies]
-bitflags = "1.0"
-byteorder = { version = "1.2", default-features = false } # Don't need the std stuff at all
-tiny-keccak = "1.0"
+bitflags = "1.1"
+byteorder = { version = "1.3", default-features = false } # Don't need the std stuff at all
+tiny-keccak = "1.5"
 
 [dependencies.subtle]
-version = "2.0"
+version = "2.1"
 default-features = false # Defaults are ["std", "i128"]
 
 [dev-dependencies]
