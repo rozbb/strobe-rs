@@ -78,16 +78,24 @@ enum DataOrLength<'a> {
 // Given the name of the operation and meta flag, returns a closure that performs this operation.
 // The types are kind of a mess, because the input and output types of the closure have to fit all
 // possible STROBE operations.
-fn get_op(op_name: String, meta: bool) -> Box<for<'a> Fn(&mut Strobe, DataOrLength<'a>, bool)> {
+fn get_op(op_name: String, meta: bool) -> Box<dyn for<'a> Fn(&mut Strobe, DataOrLength<'a>, bool)> {
     let f = move |s: &mut Strobe, dol: DataOrLength, more: bool| {
         let data = match dol {
             DataOrLength::Length(len) => {
                 if !meta {
-                    assert_eq!(op_name.as_str(), "RATCHET", "Got length input without RATCHET op");
+                    assert_eq!(
+                        op_name.as_str(),
+                        "RATCHET",
+                        "Got length input without RATCHET op"
+                    );
                     s.ratchet(len, more);
                     return;
                 } else {
-                    assert_eq!(op_name.as_str(), "RATCHET", "Got length input without RATCHET op");
+                    assert_eq!(
+                        op_name.as_str(),
+                        "RATCHET",
+                        "Got length input without RATCHET op"
+                    );
                     s.meta_ratchet(len, more);
                     return;
                 }

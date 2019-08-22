@@ -11,7 +11,7 @@ pub const STROBE_VERSION: &'static str = "1.0.2";
 
 bitflags! {
     /// Operation flags defined in the Strobe paper. This is defined as a bitflags struct.
-    pub struct OpFlags: u8 {
+    pub(crate) struct OpFlags: u8 {
         /// Is data being moved inbound
         const I = 1<<0;
         /// Is data being sent to the application
