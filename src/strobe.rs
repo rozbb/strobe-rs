@@ -395,7 +395,8 @@ impl Strobe {
             all_zero = all_zero & b.ct_eq(&0u8);
         }
 
-        if all_zero.unwrap_u8() != 1 {
+        // If the buffer isn't all zeros, that's an invalid MAC
+        if !bool::from(all_zero) {
             Err(AuthError)
         } else {
             Ok(())

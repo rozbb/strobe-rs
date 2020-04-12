@@ -282,7 +282,7 @@ fn test_long_inputs() {
     s.meta_send_mac(&mut big_buf, false);
     s.send_mac(&mut big_buf, false);
 
-    let expected_st =[
+    let expected_st = [
         0x0c, 0x75, 0x93, 0x6f, 0x9a, 0x39, 0x2c, 0x41, 0xbd, 0x4f, 0xe1, 0xf1, 0x8c, 0x24, 0x3d,
         0x37, 0xdd, 0xcb, 0x0f, 0x7b, 0x8a, 0xd4, 0xe0, 0x06, 0xa7, 0xf0, 0xa2, 0x5b, 0xe7, 0x88,
         0x9e, 0x34, 0xe3, 0x42, 0xb3, 0xa4, 0x4a, 0xfd, 0xb3, 0x49, 0x9d, 0x27, 0xc5, 0x00, 0x7a,
@@ -360,9 +360,9 @@ fn test_enc_correctness() {
 
 // Test that recv_mac(send_mac()) doesn't error, and recv_mac(otherstuff) does error
 #[test]
-fn test_mac_correctness() {
-    let mut tx = Strobe::new(b"maccorrectnesstest", SecParam::B256);
-    let mut rx = Strobe::new(b"maccorrectnesstest", SecParam::B256);
+fn test_mac_correctness_and_soundness() {
+    let mut tx = Strobe::new(b"mactest", SecParam::B256);
+    let mut rx = Strobe::new(b"mactest", SecParam::B256);
 
     // Just do some stuff with the state
 
