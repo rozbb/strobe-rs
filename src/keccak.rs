@@ -27,7 +27,7 @@ pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
 #[cfg(not(target_endian = "little"))]
 pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
     let mut keccak_block = [0u64; KECCAK_BLOCK_SIZE];
-    LittleEndian::read_u64_into(st.0, &mut keccak_block);
+    LittleEndian::read_u64_into(&st.0, &mut keccak_block);
     tiny_keccak::keccakf(&mut keccak_block);
     LittleEndian::write_u64_into(&keccak_block, &mut st.0);
 }
