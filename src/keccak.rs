@@ -15,6 +15,9 @@ pub(crate) struct AlignedKeccakState(pub(crate) [u8; 8 * KECCAK_BLOCK_SIZE]);
 // keccak_f in-place
 #[cfg(target_endian = "little")]
 pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
+    // Clippy doesn't like the transmute. It suggests casting notation, but it's super ugly and not
+    // at all clear.
+    #[allow(clippy::transmute_ptr_to_ptr)]
     unsafe {
         let mut transmuted_block: &mut [u64; KECCAK_BLOCK_SIZE] = core::mem::transmute(&mut st.0);
         tiny_keccak::keccakf(&mut transmuted_block);

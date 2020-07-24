@@ -7,7 +7,7 @@ use bitflags::bitflags;
 use subtle::{self, ConstantTimeEq};
 
 /// Version of Strobe that this crate implements.
-pub const STROBE_VERSION: &'static str = "1.0.2";
+pub const STROBE_VERSION: &str = "1.0.2";
 
 bitflags! {
     /// Operation flags defined in the Strobe paper. This is defined as a bitflags struct.
@@ -140,9 +140,9 @@ impl Strobe {
         keccakf_u8(&mut st);
 
         let mut strobe = Strobe {
-            st: st,
-            sec: sec,
-            rate: rate,
+            st,
+            sec,
+            rate,
             pos: 0,
             pos_begin: 0,
             is_receiver: None,
@@ -392,7 +392,7 @@ impl Strobe {
         // Constant-time MAC check. This accumulates the truth values of byte == 0
         let mut all_zero = subtle::Choice::from(1u8);
         for b in data {
-            all_zero = all_zero & b.ct_eq(&0u8);
+            all_zero &= b.ct_eq(&0u8);
         }
 
         // If the buffer isn't all zeros, that's an invalid MAC
