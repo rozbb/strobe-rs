@@ -1,5 +1,7 @@
 name: CI
 on:
+  # Run CI on new pushes to the repo or any pull requests.
+  # If only the README file changed, ignore.
   pull_request:
     paths-ignore:
       - README.md
@@ -7,6 +9,9 @@ on:
     branches: master
     paths-ignore:
       - README.md
+  # Run CI at least once a month no matter what
+  schedule:
+    - cron: '* * * */1 *'
 
 jobs:
   test:
@@ -22,7 +27,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
 
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
@@ -33,18 +38,60 @@ jobs:
       - name: Run cargo test --no-default-features
         env:
           CARGO_INCREMENTAL: 0
-        run: cargo test --no-default-features
+          RUSTFLAGS: -D warnings
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --no-default-features
 
       - name: Run cargo test --all-features
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: -D warnings
-        run: cargo test --all-features
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+
+  cross-linux-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust_target:
+          # Other interesting archs here:
+          # https://github.com/rust-embedded/cross/tree/master/docker
+          - i686-unknown-linux-gnu
+          - powerpc-unknown-linux-gnu
+    timeout-minutes: 10
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            profile: minimal
+            target: ${{ matrix.rust_target }}
+            default: true
+
+      - name: Test
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: -D warnings
+        uses: actions-rs/cargo@v1
+        with:
+          # see https://github.com/rust-embedded/cross
+          use-cross: true
+          command: test
+          args: --all-features --target ${{ matrix.rust_target }}
+
   rustfmt:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -61,7 +108,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
