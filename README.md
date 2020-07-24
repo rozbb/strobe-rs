@@ -1,12 +1,12 @@
 strobe-rs
 =========
 
-[![Build Status](https://travis-ci.org/rozbb/strobe-rs.svg?branch=master)](https://travis-ci.org/rozbb/strobe-rs)
+[![CI](https://github.com/rozbb/strobe-rs/workflows/CI/badge.svg)](https://github.com/rozbb/strobe-rs/actions)
 [![Coverage](https://codecov.io/gh/rozbb/strobe-rs/branch/master/graph/badge.svg)](https://codecov.io/gh/rozbb/strobe-rs)
 [![Version](https://img.shields.io/crates/v/strobe-rs.svg)](https://crates.io/crates/strobe-rs)
 [![Docs](https://docs.rs/strobe-rs/badge.svg)](https://docs.rs/strobe-rs)
 
-This is a relatively barebones implementation of the [Strobe protocol framework][strobe] in pure Rust. It is intended to be used as a library to build other protocols and frameworks. This implementation currently only supports Keccak-f\[1600\] as the internal permutation function, which is the largest possible block size, so big deal.
+This is a relatively barebones, `no_std` implementation of the [Strobe protocol framework][strobe] in pure Rust. It is intended to be used as a library to build other protocols and frameworks. This implementation currently only supports Keccak-f\[1600\] as the internal permutation function, which is the largest possible block size, so big deal.
 
 [strobe]: https://strobe.sourceforge.io/
 
@@ -43,8 +43,11 @@ fn main() {
 Features
 --------
 
-* This crate does support `no_std`. However, the `std` feature is enabled by default.
-* A `nightly` feature is also supported and disabled by default. This currently just forwards to [`subtle`](https://github.com/dalek-cryptography/subtle)'s `nightly` feature.
+Default features flags: [none]
+
+Feature flag list:
+
+* `std` - Necessary for running known-answer tests. No need to enable unless you're debugging this crate.
 
 For info on how to omit or include feature flags, see the [cargo docs on features](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features).
 
@@ -61,7 +64,6 @@ Since benchmarks are still not stable, run `cargo +nightly bench`.
 TODO
 ----
 
-* Get code coverage information
 * Contribute an asm impelmentation of Keccak-f\[1600\] to tiny-keccak and expose a feature flag that lets `strobe-rs` users choose which implementation they prefer.
 * Put more asserts in the code like the Python implementation does. Not sure if this is a great idea though
 
