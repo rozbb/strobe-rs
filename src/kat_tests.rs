@@ -115,7 +115,7 @@ fn get_op(op_name: String, meta: bool) -> Box<dyn for<'a> Fn(&mut Strobe, DataOr
                 "send_ENC" => s.send_enc(data, more),
                 "recv_ENC" => s.recv_enc(data, more),
                 "send_MAC" => s.send_mac(data, more),
-                "recv_MAC" => s.recv_mac(data, more).unwrap_or(()),
+                "recv_MAC" => s.recv_mac(data).unwrap_or(()),
                 "RATCHET" => panic!("Got RATCHET op without length input"),
                 _ => panic!("Unexpected op name: {}", op_name),
             }
@@ -129,7 +129,7 @@ fn get_op(op_name: String, meta: bool) -> Box<dyn for<'a> Fn(&mut Strobe, DataOr
                 "send_ENC" => s.meta_send_enc(data, more),
                 "recv_ENC" => s.meta_recv_enc(data, more),
                 "send_MAC" => s.meta_send_mac(data, more),
-                "recv_MAC" => s.meta_recv_mac(data, more).unwrap_or(()),
+                "recv_MAC" => s.meta_recv_mac(data).unwrap_or(()),
                 "RATCHET" => panic!("Got RATCHET op without length input"),
                 _ => panic!("Unexpected op name: {}", op_name),
             }
