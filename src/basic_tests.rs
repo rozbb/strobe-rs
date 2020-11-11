@@ -270,8 +270,8 @@ fn test_long_inputs() {
     s.send_enc(big_data.to_vec().as_mut_slice(), false);
     s.meta_recv_enc(big_data.to_vec().as_mut_slice(), false);
     s.recv_enc(big_data.to_vec().as_mut_slice(), false);
-    let _ = s.meta_recv_mac(big_data.to_vec().as_mut_slice(), false);
-    let _ = s.recv_mac(big_data.to_vec().as_mut_slice(), false);
+    let _ = s.meta_recv_mac(big_data.to_vec().as_mut_slice());
+    let _ = s.recv_mac(big_data.to_vec().as_mut_slice());
 
     let mut big_buf = [0u8; BIG_N];
 
@@ -304,23 +304,27 @@ fn test_long_inputs() {
 
 // Test that streaming in data using the `more` flag works as expected
 #[test]
-fn test_streaming() {
+fn test_streaming_correctness() {
     // Compute a few things without breaking up their inputs
     let one_shot_st: Vec<u8> = {
         let mut s = Strobe::new(b"streamingtest", SecParam::B256);
+
         s.ad(b"mynonce", false);
 
         let mut buf = b"hello there".to_vec();
         s.recv_enc(buf.as_mut_slice(), false);
 
-        let mut buf = [0u8; 16];
-        s.send_mac(&mut buf[..], false);
+        let mut mac = [0u8; 16];
+        s.send_mac(&mut mac[..], false);
+
+        s.ratchet(13, false);
 
         s.st.0.to_vec()
     };
     // Now do the same thing but stream the inputs
     let streamed_st: Vec<u8> = {
         let mut s = Strobe::new(b"streamingtest", SecParam::B256);
+
         s.ad(b"my", false);
         s.ad(b"nonce", true);
 
@@ -330,14 +334,47 @@ fn test_streaming() {
         let mut buf = b" there".to_vec();
         s.recv_enc(buf.as_mut_slice(), true);
 
-        let mut buf = [0u8; 10];
-        s.send_mac(&mut buf[..], false);
-        let mut buf = [0u8; 6];
-        s.send_mac(&mut buf[..], true);
+        let mut mac = [0u8; 16];
+        s.send_mac(&mut mac[..10], false);
+        s.send_mac(&mut mac[10..], true);
+
+        s.ratchet(10, false);
+        s.ratchet(3, true);
+
         s.st.0.to_vec()
     };
 
     assert_eq!(one_shot_st, streamed_st);
+}
+
+// Tests that you can't use the `more` flag in a nonsensical way, i.e., without being immediately
+// after the same op. In this instance, the violating operation is a nonmutating one (it's AD)
+#[test]
+#[should_panic]
+fn test_streaming_soundness_nomutate() {
+    let mut s = Strobe::new(b"mactest", SecParam::B256);
+
+    // Key with valid steps
+    s.key(b"secret", false);
+    s.key(b"sauce", true);
+
+    // Do a streaming AD op without an antecedent AD op. This should fail
+    s.ad(b"badmoreflag", true);
+}
+
+// Same as above, but whose violating operation is a mutating one (it's send_enc)
+#[test]
+#[should_panic]
+fn test_streaming_soundness_mutate() {
+    let mut s = Strobe::new(b"mactest", SecParam::B256);
+
+    // Key with valid steps
+    s.key(b"secret", false);
+    s.key(b"sauce", true);
+
+    // Do a streaming send_enc op without an antecedent send_enc op. This should fail
+    let mut msg = *b"testing";
+    s.send_enc(&mut msg, true);
 }
 
 // Test that decrypt(encrypt(msg)) == msg
@@ -378,7 +415,7 @@ fn test_mac_correctness_and_soundness() {
 
     // Test that valid MACs are accepted
     let mut rx_copy = rx.clone();
-    let good_res = rx_copy.recv_mac(&mut mac[..], false);
+    let good_res = rx_copy.recv_mac(&mut mac[..]);
     assert!(good_res.is_ok());
 
     // Test that invalid MACs are rejected
@@ -387,6 +424,6 @@ fn test_mac_correctness_and_soundness() {
         tmp.push(0);
         tmp
     };
-    let bad_res = rx.recv_mac(&mut bad_mac[..], false);
+    let bad_res = rx.recv_mac(&mut bad_mac[..]);
     assert!(bad_res.is_err());
 }

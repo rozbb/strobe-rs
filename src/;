@@ -339,12 +339,11 @@ impl Strobe {
     /// given, this will treat `data` as a continuation of the data given in the previous
     /// call to `operate`.
     pub(crate) fn operate(&mut self, flags: OpFlags, data: &mut [u8], more: bool) {
-        // Make sure the K opflag isn't being used, and that the `more` flag isn't being misused
         assert!(!flags.contains(OpFlags::K), "Op flag K not implemented");
         self.validate_streaming(flags, more);
 
-        // If `more` isn't set, this is a new operation. Do the begin_op sequence
         if !more {
+            // If `more` isn't set, this is a new operation. Do the begin_op sequence
             self.begin_op(flags);
         }
 
@@ -379,11 +378,8 @@ impl Strobe {
     /// this will treat `data` as a continuation of the data given in the previous call to
     /// `operate`. This uses non-mutating variants of the specializations of the `duplex` function.
     pub(crate) fn operate_no_mutate(&mut self, flags: OpFlags, data: &[u8], more: bool) {
-        // Make sure the K opflag isn't being used, and that the `more` flag isn't being misused
         assert!(!flags.contains(OpFlags::K), "Op flag K not implemented");
-        self.validate_streaming(flags, more);
 
-        // If `more` isn't set, this is a new operation. Do the begin_op sequence
         if !more {
             self.begin_op(flags);
         }
@@ -438,7 +434,7 @@ impl Strobe {
     /// Attempts to authenticate the current state against the given MAC. On failure, it returns an
     /// `AuthError`. It behooves the user of this library to check this return value and overreact
     /// on error.
-    pub fn meta_recv_mac(&mut self, data: &mut [u8]) -> Result<(), AuthError> {
+    pub fn meta_recv_mac(&mut self, data: &mut [u8], more: bool) -> Result<(), AuthError> {
         self.generalized_recv_mac(data, /* is_meta */ true)
     }
 
