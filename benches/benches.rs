@@ -2,6 +2,9 @@ use strobe_rs::{SecParam, Strobe};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
+// Literally all these functions (besides ratchet) should have the same runtime. But a benchmark
+// can't hurt, I suppose
+
 fn bench_nonmeta(c: &mut Criterion) {
     let mut g = c.benchmark_group("simple bench");
 
