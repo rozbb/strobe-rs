@@ -1,37 +1,22 @@
-#[cfg(not(target_endian = "little"))]
 use byteorder::{ByteOrder, LittleEndian};
 
 /// keccak block size in 64-bit words. This is the N parameter in the STROBE spec
 pub const KECCAK_BLOCK_SIZE: usize = 25;
 
 /// This is a wrapper around 200-byte buffer that's always 8-byte aligned to make pointers to it
-/// safely convertible to pointers to [u64; 25] (since u64 words must be 8-byte aligned)
+/// safely convertible to a pointer to [u64; 25] (since u64 words must be 8-byte aligned)
 #[derive(Clone)]
 #[repr(align(8))]
 pub(crate) struct AlignedKeccakState(pub(crate) [u8; 8 * KECCAK_BLOCK_SIZE]);
 
 /// Performs the keccakf\[1600\] permutation on a byte buffer
-// When we're on a little-endian platform, there's no need to copy over the buffer, we can do the
-// keccak_f in-place
-#[cfg(target_endian = "little")]
-pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
-    // Clippy doesn't like the transmute. It suggests casting notation, but it's super ugly and not
-    // at all clear.
-    #[allow(clippy::transmute_ptr_to_ptr)]
-    unsafe {
-        let mut transmuted_block: &mut [u64; KECCAK_BLOCK_SIZE] = core::mem::transmute(&mut st.0);
-        tiny_keccak::keccakf(&mut transmuted_block);
-    }
-}
-
-/// Performs the keccakf\[1600\] permutation on a byte buffer
-// If we're not little-endian, we can't perform the above optimization. Make a little-endian copy,
-// do the operation, then copy the bytes back.
-#[cfg(not(target_endian = "little"))]
+// Make a little-endian copy, do the operation, then copy the bytes back. Hopefully the compiler
+// will optimize out the copy if we' re on a little endian machine. I don't feel comfortable doing
+// a mem transmute.
 pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
     let mut keccak_block = [0u64; KECCAK_BLOCK_SIZE];
     LittleEndian::read_u64_into(&st.0, &mut keccak_block);
-    tiny_keccak::keccakf(&mut keccak_block);
+    keccak::f1600(&mut keccak_block);
     LittleEndian::write_u64_into(&keccak_block, &mut st.0);
 }
 
