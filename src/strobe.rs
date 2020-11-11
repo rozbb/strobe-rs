@@ -458,10 +458,12 @@ impl Strobe {
         };
 
         // We don't make an `operate` call, since this is a super special case. That means we have
-        // to make the `begin_op` call manually.
+        // to validate the flags and make the `begin_op` call manually.
+        self.validate_streaming(flags, more);
         if !more {
             self.begin_op(flags);
         }
+
         self.zero_state(num_bytes_to_zero);
     }
 

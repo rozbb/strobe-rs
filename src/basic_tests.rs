@@ -377,6 +377,20 @@ fn test_streaming_soundness_mutate() {
     s.send_enc(&mut msg, true);
 }
 
+// Same as above but with ratchet
+#[test]
+#[should_panic]
+fn test_streaming_soundness_ratchet() {
+    let mut s = Strobe::new(b"mactest", SecParam::B256);
+
+    // Key with valid steps
+    s.key(b"secret", false);
+    s.key(b"sauce", true);
+
+    // Do a streaming ratchet op without an antecedent ratchet op. This should fail
+    s.ratchet(10, true);
+}
+
 // Test that decrypt(encrypt(msg)) == msg
 #[test]
 fn test_enc_correctness() {

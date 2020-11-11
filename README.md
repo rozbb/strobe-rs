@@ -58,7 +58,7 @@ To run tests, execute
 
     cargo test --all-features
 
-This includes known-answer tests, which test against JSON-encoded test vectors in the [kat/](kat/) directory. To verify these test vectors against the reference Python implementation, `cd` into `kat/`, run `python2 kat/verify_test_vector.py` and follow the included instructions.
+This includes known-answer tests, which test against JSON-encoded test vectors in the [kat/](kat/) directory. To verify these test vectors against the reference Python implementation, `cd` into `kat/`, run `python2 verify_test_vector.py` and follow the included instructions.
 
 Benchmarks
 ----------
