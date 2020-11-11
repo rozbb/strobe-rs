@@ -54,18 +54,25 @@ For info on how to omit or include feature flags, see the [cargo docs on feature
 Tests
 -----
 
-To run tests, execute `cargo test`. This includes known-answer tests, which test against JSON-encoded test vectors in the [kat/](kat/) directory. To verify these test vectors against the reference Python implementation, `cd` into `kat/`, run `python2 kat/verify_test_vector.py` and follow the included instructions.
+To run tests, execute
+
+    cargo test --all-features
+
+This includes known-answer tests, which test against JSON-encoded test vectors in the [kat/](kat/) directory. To verify these test vectors against the reference Python implementation, `cd` into `kat/`, run `python2 kat/verify_test_vector.py` and follow the included instructions.
 
 Benchmarks
 ----------
 
-Since benchmarks are still not stable, run `cargo +nightly bench`.
+To benchmark, run
+
+    cargo bench
+
+This will produce a summary with plots in `target/crieteron/report/index.html`. These won't be very interesting, since almost every function in  STROBE has the same runtime.
 
 TODO
 ----
 
 * Contribute an asm impelmentation of Keccak-f\[1600\] to tiny-keccak and expose a feature flag that lets `strobe-rs` users choose which implementation they prefer.
-* Put more asserts in the code like the Python implementation does. Not sure if this is a great idea though
 
 License
 -------
