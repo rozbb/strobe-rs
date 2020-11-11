@@ -50,7 +50,8 @@ pub struct AuthError;
 /// Most operations exposed by `Strobe` take the same set of inputs. The arguments are
 ///
 /// * `data` - The input data to the operation.
-/// * `more` - Whether or not you want to add more input to the previous operation. For example:
+/// * `more` - For streaming purposes. Specifies whether you're trying to add more input / get more
+///            output to/from the previous operation. For example:
 ///
 /// ```rust
 /// # extern crate strobe_rs;
@@ -71,16 +72,20 @@ pub struct AuthError;
 /// # }
 /// ```
 ///
-/// Some methods take a `usize` argument instead of bytes. These functions are individually
-/// commented below.
+/// **NOTE:** If you try to set the `more` flag for an operation that is not preceded by the same
+/// operation (e.g., if you try `ad` followed by `send_enc` with `more=true`), then **the function
+/// will panic**, since that is an invalid use of the `more` flag.
+///
+/// Finally, `ratchet` and `meta_ratchet` take a `usize` argument instead of bytes. These functions
+/// are individually commented below.
 #[derive(Clone)]
 pub struct Strobe {
     /// Internal Keccak state
     pub(crate) st: AlignedKeccakState,
     /// Security parameter (128 or 256)
-    pub sec: SecParam,
+    sec: SecParam,
     /// This is the `R` parameter in the Strobe spec
-    pub rate: usize,
+    rate: usize,
     /// Index into `st`
     pos: usize,
     /// Index into `st`
@@ -153,7 +158,7 @@ impl Strobe {
         };
 
         // Mix the protocol into the state
-        let _ = strobe.meta_ad(proto, false);
+        strobe.meta_ad(proto, false);
 
         strobe
     }
