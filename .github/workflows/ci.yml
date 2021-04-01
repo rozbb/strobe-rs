@@ -9,6 +9,8 @@ on:
     branches: master
     paths-ignore:
       - README.md
+  # Allow CI workflow to be run manually
+  workflow_dispatch:
   # Run CI at least once a month no matter what
   schedule:
     - cron: '0 1 1 */1 *'
