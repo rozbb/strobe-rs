@@ -99,7 +99,7 @@ pub struct Strobe {
 
 // This defines an operation and meta-operation that mutates its input
 macro_rules! def_op_mut {
-    ($name:ident, $meta_name:ident, $flags:expr, $doc_str:expr) => (
+    ($name:ident, $meta_name:ident, $flags:expr, $doc_str:expr) => {
         #[doc = $doc_str]
         pub fn $name(&mut self, data: &mut [u8], more: bool) {
             let flags = $flags;
@@ -111,12 +111,12 @@ macro_rules! def_op_mut {
             let flags = $flags | OpFlags::M;
             self.operate(flags, data, more);
         }
-    )
+    };
 }
 
 // This defines an operation and meta-operation that does not mutate its input
 macro_rules! def_op_no_mut {
-    ($name:ident, $meta_name:ident, $flags:expr, $doc_str:expr) => (
+    ($name:ident, $meta_name:ident, $flags:expr, $doc_str:expr) => {
         #[doc = $doc_str]
         pub fn $name(&mut self, data: &[u8], more: bool) {
             let flags = $flags;
@@ -128,7 +128,7 @@ macro_rules! def_op_no_mut {
             let flags = $flags | OpFlags::M;
             self.operate_no_mutate(flags, data, more);
         }
-    )
+    };
 }
 
 impl Strobe {
