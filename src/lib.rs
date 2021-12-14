@@ -23,6 +23,10 @@ extern crate serde_derive;
 #[cfg(all(test, feature = "std"))]
 mod kat_tests;
 
+// serde_tests requires serde
+#[cfg(all(test, feature = "serde"))]
+mod serde_tests;
+
 //-------- Modules and exports--------//
 
 mod keccak;

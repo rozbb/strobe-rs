@@ -1,5 +1,10 @@
 use byteorder::{ByteOrder, LittleEndian};
 
+#[cfg(feature = "serde")]
+use serde::{Serialize, Serializer, Deserialize, Deserializer, de::{self, Visitor}};
+#[cfg(feature = "serde")]
+use core::fmt;
+
 /// keccak block size in 64-bit words. This is the N parameter in the STROBE spec
 pub const KECCAK_BLOCK_SIZE: usize = 25;
 
@@ -18,6 +23,47 @@ pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
     LittleEndian::read_u64_into(&st.0, &mut keccak_block);
     keccak::f1600(&mut keccak_block);
     LittleEndian::write_u64_into(&keccak_block, &mut st.0);
+}
+
+/// Serialize for the Keccak state bytes
+#[cfg(feature = "serde")]
+impl Serialize for AlignedKeccakState {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bytes(&self.0)
+    }
+}
+
+/// Deserialize for the Keccak state bytes
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for AlignedKeccakState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct AlignedKeccakStateVisitor;
+
+        impl<'de> Visitor<'de> for AlignedKeccakStateVisitor {
+            type Value = AlignedKeccakState;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("Keccak block size worth of bytes")
+            }
+
+            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                let mut st_buf = [0u8; 8 * KECCAK_BLOCK_SIZE];
+                st_buf.copy_from_slice(&v[0..(8 * KECCAK_BLOCK_SIZE)]);
+                Ok(AlignedKeccakState(st_buf))
+            }
+        }
+
+        deserializer.deserialize_bytes(AlignedKeccakStateVisitor)
+    }
 }
 
 /*
