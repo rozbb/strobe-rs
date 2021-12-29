@@ -1,18 +1,26 @@
 use byteorder::{ByteOrder, LittleEndian};
 
-#[cfg(feature = "serde")]
-use serde::{Serialize, Serializer, Deserialize, Deserializer, de::{self, Visitor}};
-#[cfg(feature = "serde")]
-use core::fmt;
-
 /// keccak block size in 64-bit words. This is the N parameter in the STROBE spec
 pub const KECCAK_BLOCK_SIZE: usize = 25;
+
+// With this feature on, a user can serialize and deserialize the state of a STROBE session
+#[cfg(feature = "serialize_secret_state")]
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "serialize_secret_state")]
+use serde_big_array::big_array;
+// Define a serialization flag for a Keccak state
+#[cfg(feature = "serialize_secret_state")]
+big_array! { BigArray; 8 * KECCAK_BLOCK_SIZE }
 
 /// This is a wrapper around 200-byte buffer that's always 8-byte aligned to make pointers to it
 /// safely convertible to a pointer to [u64; 25] (since u64 words must be 8-byte aligned)
 #[derive(Clone)]
+#[cfg_attr(feature = "serialize_secret_state", derive(Serialize, Deserialize))]
 #[repr(align(8))]
-pub(crate) struct AlignedKeccakState(pub(crate) [u8; 8 * KECCAK_BLOCK_SIZE]);
+pub(crate) struct AlignedKeccakState(
+    #[cfg_attr(feature = "serialize_secret_state", serde(with = "BigArray"))]
+    pub(crate)  [u8; 8 * KECCAK_BLOCK_SIZE],
+);
 
 /// Performs the keccakf\[1600\] permutation on a byte buffer
 // Make a little-endian copy, do the operation, then copy the bytes back. Hopefully the compiler
@@ -23,47 +31,6 @@ pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
     LittleEndian::read_u64_into(&st.0, &mut keccak_block);
     keccak::f1600(&mut keccak_block);
     LittleEndian::write_u64_into(&keccak_block, &mut st.0);
-}
-
-/// Serialize for the Keccak state bytes
-#[cfg(feature = "serde")]
-impl Serialize for AlignedKeccakState {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_bytes(&self.0)
-    }
-}
-
-/// Deserialize for the Keccak state bytes
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for AlignedKeccakState {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct AlignedKeccakStateVisitor;
-
-        impl<'de> Visitor<'de> for AlignedKeccakStateVisitor {
-            type Value = AlignedKeccakState;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("Keccak block size worth of bytes")
-            }
-
-            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                let mut st_buf = [0u8; 8 * KECCAK_BLOCK_SIZE];
-                st_buf.copy_from_slice(&v[0..(8 * KECCAK_BLOCK_SIZE)]);
-                Ok(AlignedKeccakState(st_buf))
-            }
-        }
-
-        deserializer.deserialize_bytes(AlignedKeccakStateVisitor)
-    }
 }
 
 /*

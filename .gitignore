@@ -3,3 +3,4 @@
 Cargo.lock
 *.vi
 /strobe-reference
+.DS_Store

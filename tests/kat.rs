@@ -1,7 +1,6 @@
-use crate::{
-    prelude::*,
-    strobe::{SecParam, Strobe},
-};
+#![cfg(feature = "std")]
+
+use strobe_rs::{SecParam, Strobe};
 
 use std::{boxed::Box, fs::File, path::Path};
 
@@ -23,13 +22,13 @@ struct TestHead {
 struct TestOp {
     name: String,
     meta: bool,
-    #[serde(deserialize_with = "state_from_hex")]
+    #[serde(deserialize_with = "bytes_from_hex")]
     input_data: Vec<u8>,
     stream: bool,
-    #[serde(default, rename = "output", deserialize_with = "state_from_hex_opt")]
+    #[serde(default, rename = "output", deserialize_with = "bytes_from_hex_opt")]
     expected_output: Option<Vec<u8>>,
-    #[serde(rename = "state_after", deserialize_with = "state_from_hex")]
-    expected_state_after: Vec<u8>,
+    // We don't parse the state_after field because we can't access the Keccak state from the tests
+    // module. Thus, our tests depend entirely on matching outputs, which is sufficient.
 }
 
 // Tells serde how to deserialize a `SecParam`
@@ -45,8 +44,8 @@ where
     }
 }
 
-// Tells serde how to deserialize keccak state from its hex representation
-fn state_from_hex<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+// Tells serde how to deserialize bytes from hex
+fn bytes_from_hex<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -61,11 +60,11 @@ where
 // This function is a formality. Some fields are not present, so they're wrapped in Option in the
 // above structs. Hence, the deserialization function must return an Option. The `default` pragma
 // on the members ensures, however, that the value is None when the field is missing.
-fn state_from_hex_opt<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
+fn bytes_from_hex_opt<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    state_from_hex(deserializer).map(|v| Some(v))
+    bytes_from_hex(deserializer).map(Some)
 }
 
 // Recall that `ratchet` can take a length argument, so this is the most general type that
@@ -155,12 +154,9 @@ fn test_against_vector<P: AsRef<Path>>(filename: P) {
             mut input_data,
             stream,
             expected_output,
-            expected_state_after,
         } = test_op;
 
-        if name == "init" {
-            assert_eq!(&s.st.0[..], expected_state_after.as_slice());
-        } else {
+        if name != "init" {
             // RATCHET inputs are given as strings of zeros instead of lengths. So just take the
             // length of the string of zeros.
             let input = if &name == "RATCHET" {
@@ -171,8 +167,6 @@ fn test_against_vector<P: AsRef<Path>>(filename: P) {
 
             let op = get_op(name.clone(), meta);
             op(&mut s, input, stream);
-
-            assert_eq!(&s.st.0[..], expected_state_after.as_slice());
 
             // Only test expected output if the test vector has output to test against
             if let Some(eo) = expected_output {

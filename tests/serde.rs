@@ -1,21 +1,22 @@
-use crate::{
-    prelude::*,
-    strobe::{SecParam, Strobe},
-};
-use serde_bare;
+#![cfg(feature = "serialize_secret_state")]
 
+use serde_json;
+use strobe_rs::{SecParam, Strobe};
+
+// Serializes and immediately deserializes a Strobe state. Should be equivalent to the identity
+// function. The tests below make sure of that.
 fn do_round_trip(s: &Strobe) -> Strobe {
-    // serialize to bytes here...
-    let b = serde_bare::to_vec(&s).unwrap();
+    // Serialize the Strobe state to bytes
+    let b = serde_json::to_vec(&s).unwrap();
+    println!("{}", serde_json::to_string(&s).unwrap());
 
-    // any amount of time can pass here...
-
-    // deserialize from bytes...
-    let s: Strobe = serde_bare::from_slice(&b).unwrap();
+    // Deserialize the Strobe state from bytes
+    let s: Strobe = serde_json::from_slice(&b).unwrap();
 
     s
 }
 
+// An arbitrary sequence of STROBE operations
 fn do_seq() -> Strobe {
     let mut s = Strobe::new(b"seqtest", SecParam::B256);
 
@@ -44,7 +45,7 @@ fn do_seq() -> Strobe {
 
     let mut buf = [0u8; 16];
     s.send_mac(&mut buf[..], false);
-    
+
     s
 }
 
@@ -99,8 +100,8 @@ fn do_seq_rt() -> Strobe {
 
 #[test]
 fn test_seq() {
-    let seq = serde_bare::to_vec(&do_seq()).unwrap();
-    let seq_rt = serde_bare::to_vec(&do_seq_rt()).unwrap();
+    let seq = serde_json::to_vec(&do_seq()).unwrap();
+    let seq_rt = serde_json::to_vec(&do_seq_rt()).unwrap();
     assert_eq!(&seq[..], &seq_rt[..]);
 }
 
@@ -181,15 +182,14 @@ fn do_metadata_rt() -> (Vec<u8>, Strobe) {
     (output, s)
 }
 
-
 #[test]
 fn test_metadata() {
     let (output, meta) = do_metadata();
     let (output_rt, meta_rt) = do_metadata_rt();
 
-    let m = serde_bare::to_vec(&meta).unwrap();
-    let m_rt = serde_bare::to_vec(&meta_rt).unwrap();
-    
+    let m = serde_json::to_vec(&meta).unwrap();
+    let m_rt = serde_json::to_vec(&meta_rt).unwrap();
+
     assert_eq!(&output[..], &output_rt[..]);
     assert_eq!(&m[..], &m_rt[..]);
 }
@@ -280,8 +280,8 @@ fn do_long_inputs_rt() -> Strobe {
 
 #[test]
 fn test_long_inputs() {
-    let li = serde_bare::to_vec(&do_long_inputs()).unwrap();
-    let li_rt = serde_bare::to_vec(&do_long_inputs_rt()).unwrap();
+    let li = serde_json::to_vec(&do_long_inputs()).unwrap();
+    let li_rt = serde_json::to_vec(&do_long_inputs_rt()).unwrap();
     assert_eq!(&li[..], &li_rt[..]);
 }
 
@@ -406,11 +406,11 @@ fn test_streaming_correctness() {
     let (one_shot, streamed) = do_streaming();
     let (one_shot_rt, streamed_rt) = do_streaming_rt();
 
-    let os = serde_bare::to_vec(&one_shot).unwrap();
-    let os_rt = serde_bare::to_vec(&one_shot_rt).unwrap();
+    let os = serde_json::to_vec(&one_shot).unwrap();
+    let os_rt = serde_json::to_vec(&one_shot_rt).unwrap();
 
-    let s = serde_bare::to_vec(&streamed).unwrap();
-    let s_rt = serde_bare::to_vec(&streamed_rt).unwrap();
+    let s = serde_json::to_vec(&streamed).unwrap();
+    let s_rt = serde_json::to_vec(&streamed_rt).unwrap();
 
     assert_eq!(&os[..], &os_rt[..]);
     assert_eq!(&s[..], &s_rt[..]);
@@ -506,7 +506,7 @@ fn test_mac_correctness_and_soundness_rt() {
     let rx = Strobe::new(b"mactest", SecParam::B256);
 
     // Serialize the rx side...
-    let rx_sleep = serde_bare::to_vec(&rx).unwrap();
+    let rx_sleep = serde_json::to_vec(&rx).unwrap();
 
     // Just do some stuff with the state
 
@@ -518,17 +518,17 @@ fn test_mac_correctness_and_soundness_rt() {
     tx.send_mac(&mut mac[..], false);
 
     // Deserialize the rx side upon receiving an encrypted message and decrypt...
-    let mut rx: Strobe = serde_bare::from_slice(&rx_sleep).unwrap();
+    let mut rx: Strobe = serde_json::from_slice(&rx_sleep).unwrap();
     rx.key(b"secretsauce", false);
     rx.recv_enc(&mut msg[..], false);
 
     // Serialize the rx side again
-    let rx_sleep = serde_bare::to_vec(&rx).unwrap();
+    let rx_sleep = serde_json::to_vec(&rx).unwrap();
 
     // Create two identical strobe states from one serialized Strobe state
-    let mut rx1: Strobe = serde_bare::from_slice(&rx_sleep).unwrap();
-    let mut rx2: Strobe = serde_bare::from_slice(&rx_sleep).unwrap();
-    
+    let mut rx1: Strobe = serde_json::from_slice(&rx_sleep).unwrap();
+    let mut rx2: Strobe = serde_json::from_slice(&rx_sleep).unwrap();
+
     // Test that valid MACs are accepted
     let good_res = rx1.recv_mac(&mut mac[..]);
     assert!(good_res.is_ok());
