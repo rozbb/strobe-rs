@@ -47,7 +47,7 @@ Default features flags: [none]
 
 Feature flag list:
 
-* `serialize_secret_state` - For serializing/deserializing the Strobe state if needed. **SECURITY NOTE**: Serializing the Strobe state outputs security sensitive data that MUST be kept private. Treat the data as you would a private encryption/decryption key.
+* `serialize_secret_state` - Implements `serde`'s `Serialize` and `Deserialize` traits for the `Strobe` struct. **SECURITY NOTE**: Serializing Strobe state outputs security sensitive data that MUST be kept private. Treat the data as you would a private encryption/decryption key.
 * `std` - Necessary for running known-answer tests. No need to enable unless you're debugging this crate.
 
 For info on how to omit or include feature flags, see the [cargo docs on features](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features).
