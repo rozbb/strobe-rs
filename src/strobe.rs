@@ -6,11 +6,16 @@ use crate::{
 use bitflags::bitflags;
 use subtle::{self, ConstantTimeEq};
 
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+
+
 /// Version of Strobe that this crate implements.
 pub const STROBE_VERSION: &str = "1.0.2";
 
 bitflags! {
     /// Operation flags defined in the Strobe paper. This is defined as a bitflags struct.
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     pub(crate) struct OpFlags: u8 {
         /// Is data being moved inbound
         const I = 1<<0;
@@ -29,6 +34,7 @@ bitflags! {
 
 /// Security parameter. Choice of 128 or 256 bits.
 #[derive(Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(usize)]
 pub enum SecParam {
     B128 = 128,
@@ -79,6 +85,7 @@ pub struct AuthError;
 /// Finally, `ratchet` and `meta_ratchet` take a `usize` argument instead of bytes. These functions
 /// are individually commented below.
 #[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Strobe {
     /// Internal Keccak state
     pub(crate) st: AlignedKeccakState,

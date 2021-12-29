@@ -48,8 +48,11 @@ Default features flags: [none]
 Feature flag list:
 
 * `std` - Necessary for running known-answer tests. No need to enable unless you're debugging this crate.
+* `serde` - For serializing/deserializing the Strobe state if needed. (Also works with no_std).
 
 For info on how to omit or include feature flags, see the [cargo docs on features](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features).
+
+**SECURITY NOTE**: Serializing the Strobe state outputs security sensitive data that must be kept private. Treat the data as you would a secret/private encryption key.
 
 Tests
 -----
