@@ -1,6 +1,7 @@
-#![cfg(feature = "std")]
-
-use strobe_rs::{SecParam, Strobe};
+use crate::{
+    prelude::*,
+    strobe::{SecParam, Strobe},
+};
 
 use std::{boxed::Box, fs::File, path::Path};
 
@@ -27,8 +28,8 @@ struct TestOp {
     stream: bool,
     #[serde(default, rename = "output", deserialize_with = "bytes_from_hex_opt")]
     expected_output: Option<Vec<u8>>,
-    // We don't parse the state_after field because we can't access the Keccak state from the tests
-    // module. Thus, our tests depend entirely on matching outputs, which is sufficient.
+    #[serde(default, rename = "state_after", deserialize_with = "bytes_from_hex")]
+    expected_state_after: Vec<u8>,
 }
 
 // Tells serde how to deserialize a `SecParam`
@@ -137,6 +138,21 @@ fn get_op(op_name: String, meta: bool) -> Box<dyn for<'a> Fn(&mut Strobe, DataOr
     Box::new(f)
 }
 
+// If Strobe state serialization is defined, then this function does a
+// JSON serialization/deserialization round trip on the input state. This is for testing
+// correctness of our serde impl.
+#[cfg(feature = "serialize_secret_state")]
+fn serde_round_trip(s: Strobe) -> Strobe {
+    let b = serde_json::to_vec(&s).unwrap();
+    let s: Strobe = serde_json::from_slice(&b).unwrap();
+    s
+}
+// If the this feature isn't present, then this is the identity function
+#[cfg(not(feature = "serialize_secret_state"))]
+fn serde_round_trip(s: Strobe) -> Strobe {
+    s
+}
+
 // Runs the test vector and compares to the expected output at each step of the way
 fn test_against_vector<P: AsRef<Path>>(filename: P) {
     let file = File::open(filename).unwrap();
@@ -148,12 +164,18 @@ fn test_against_vector<P: AsRef<Path>>(filename: P) {
     let mut s = Strobe::new(proto_string.as_bytes(), security);
 
     for test_op in operations.into_iter() {
+        // Test the serde functionality while we're at it. Do a JSON serialization/deserialization
+        // round trip on the state. If not defined, this is the identity function.
+        s = serde_round_trip(s);
+
+        // Destructure the operation
         let TestOp {
             name,
             meta,
             mut input_data,
             stream,
             expected_output,
+            expected_state_after,
         } = test_op;
 
         if name != "init" {
@@ -167,6 +189,8 @@ fn test_against_vector<P: AsRef<Path>>(filename: P) {
 
             let op = get_op(name.clone(), meta);
             op(&mut s, input, stream);
+
+            assert_eq!(&s.st.0[..], expected_state_after.as_slice());
 
             // Only test expected output if the test vector has output to test against
             if let Some(eo) = expected_output {

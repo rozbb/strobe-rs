@@ -14,6 +14,10 @@ extern crate alloc;
 #[cfg(test)]
 mod basic_tests;
 
+// kat_tests requires std
+#[cfg(all(test, feature = "std"))]
+mod kat_tests;
+
 //-------- Modules and exports--------//
 
 mod keccak;
