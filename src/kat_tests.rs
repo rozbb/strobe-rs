@@ -23,8 +23,10 @@ struct TestHead {
 struct TestOp {
     name: String,
     meta: bool,
-    #[serde(deserialize_with = "bytes_from_hex")]
-    input_data: Vec<u8>,
+    #[serde(default, deserialize_with = "bytes_from_hex_opt")]
+    input_data: Option<Vec<u8>>,
+    #[serde(default)]
+    input_length: Option<usize>,
     stream: bool,
     #[serde(default, rename = "output", deserialize_with = "bytes_from_hex_opt")]
     expected_output: Option<Vec<u8>>,
@@ -70,37 +72,35 @@ where
 
 // Recall that `ratchet` can take a length argument, so this is the most general type that
 // represents the input to a STROBE operation
-enum DataOrLength<'a> {
-    Data(&'a mut [u8]),
+enum DataOrLength {
+    Data(Vec<u8>),
     Length(usize),
+}
+
+impl DataOrLength {
+    fn get_data(&self) -> &[u8] {
+        match self {
+            DataOrLength::Data(d) => d.as_slice(),
+            _ => panic!("cannot get data from a length field"),
+        }
+    }
 }
 
 // Given the name of the operation and meta flag, returns a closure that performs this operation.
 // The types are kind of a mess, because the input and output types of the closure have to fit all
 // possible STROBE operations.
-fn get_op(op_name: String, meta: bool) -> Box<dyn for<'a> Fn(&mut Strobe, DataOrLength<'a>, bool)> {
-    let f = move |s: &mut Strobe, dol: DataOrLength, more: bool| {
+fn get_op(op_name: String, meta: bool) -> Box<dyn Fn(&mut Strobe, &mut DataOrLength, bool)> {
+    let f = move |s: &mut Strobe, dol: &mut DataOrLength, more: bool| {
         let data = match dol {
             DataOrLength::Length(len) => {
-                if !meta {
-                    assert_eq!(
-                        op_name.as_str(),
-                        "RATCHET",
-                        "Got length input without RATCHET op"
-                    );
-                    s.ratchet(len, more);
-                    return;
-                } else {
-                    assert_eq!(
-                        op_name.as_str(),
-                        "RATCHET",
-                        "Got length input without RATCHET op"
-                    );
-                    s.meta_ratchet(len, more);
-                    return;
+                match (meta, op_name.as_str()) {
+                    (false, "RATCHET") => s.ratchet(*len, more),
+                    (true, "RATCHET") => s.meta_ratchet(*len, more),
+                    (_, o) => panic!("Got length input without RATCHET op: {}", o),
                 }
+                return;
             }
-            DataOrLength::Data(data) => data,
+            DataOrLength::Data(ref mut data) => data,
         };
 
         // Note: we don't expect recv_MAC to work on random inputs. We test recv_MAC's
@@ -172,32 +172,44 @@ fn test_against_vector<P: AsRef<Path>>(filename: P) {
         let TestOp {
             name,
             meta,
-            mut input_data,
+            input_data,
+            input_length,
             stream,
             expected_output,
             expected_state_after,
         } = test_op;
 
-        if name != "init" {
-            // RATCHET inputs are given as strings of zeros instead of lengths. So just take the
-            // length of the string of zeros.
-            let input = if &name == "RATCHET" {
-                DataOrLength::Length(input_data.len())
-            } else {
-                DataOrLength::Data(input_data.as_mut_slice())
-            };
+        // Ignore the init part. That was already done in the header
+        if name == "init" {
+            continue;
+        }
 
-            let op = get_op(name.clone(), meta);
-            op(&mut s, input, stream);
-
-            assert_eq!(&s.st.0[..], expected_state_after.as_slice());
-
-            // Only test expected output if the test vector has output to test against
-            if let Some(eo) = expected_output {
-                // The input was presumably mutated;
-                let output = input_data.as_slice();
-                assert_eq!(output, eo.as_slice());
+        // Input data is either a bytestring, an output MAC size, or a number of zeros
+        let mut mac_buf = Vec::new();
+        let mut input = match (input_data, name.as_str()) {
+            (Some(data), _) => DataOrLength::Data(data),
+            (None, "send_MAC" | "PRF") => {
+                // If we have to get a MAC or PRF, make a buffer of zeros to write to
+                mac_buf.extend(core::iter::repeat(0).take(input_length.unwrap()));
+                DataOrLength::Data(mac_buf)
             }
+            (None, _) => DataOrLength::Length(input_length.unwrap()),
+        };
+
+        // Do the operation and check the resulting state
+        let op = get_op(name.clone(), meta);
+        op(&mut s, &mut input, stream);
+        assert_eq!(&s.st.0[..], expected_state_after.as_slice());
+
+        // Test expected output if the test vector has output to test against. The output of
+        // recv_MAC is True or False, which we don't count as output here
+        if name == "recv_MAC" {
+            continue;
+        }
+        if let Some(eo) = expected_output {
+            // Rename for clarity. The input is mutated in place, so it's the output now
+            let computed_output = input.get_data();
+            assert_eq!(computed_output, eo.as_slice());
         }
     }
 }

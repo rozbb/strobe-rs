@@ -67,7 +67,13 @@ def test(filename):
             assert(oo["state_after"] == binascii.hexlify(ss.st))
         else:
             flag = create_flag(oo["name"])
-            input_data = binascii.unhexlify(oo["input_data"])
+
+            # Input is either data or some number of zeros
+            input_data = None
+            if "input_data" in oo:
+                input_data = binascii.unhexlify(oo["input_data"])
+            else:
+                input_data = int(oo["input_length"]) * [0x00]
 
             if oo["meta"]:
                 flag |= M
@@ -84,12 +90,15 @@ def test(filename):
                 pass
 
             assert(binascii.hexlify(ss.st) == oo["state_after"])
-            if "output" in oo:
+
+            # Check output as long as it's defined and it's not a recv_MAC op
+            if "output" in oo and oo["name"] != "recv_MAC":
                 assert(binascii.hexlify(output) == oo["output"])
 
 if __name__ == '__main__':
+    filename = sys.argv[0]
     if len(sys.argv) < 2:
-        print("\nUsage:\npython2 run_test.py TEST_VECTOR_JSON_FILE\n")
+        print("\nUsage:\npython2 " + filename + " TEST_VECTOR_JSON_FILE\n")
         sys.exit(1)
 
     filename = sys.argv[1]
