@@ -5,6 +5,7 @@ use crate::{
 
 use bitflags::bitflags;
 use subtle::{self, ConstantTimeEq};
+use zeroize::ZeroizeOnDrop;
 
 // With this feature on, a user can serialize and deserialize the state of a STROBE session
 #[cfg(feature = "serialize_secret_state")]
@@ -84,12 +85,13 @@ pub struct AuthError;
 ///
 /// Finally, `ratchet` and `meta_ratchet` take a `usize` argument instead of bytes. These functions
 /// are individually commented below.
-#[derive(Clone)]
+#[derive(Clone, ZeroizeOnDrop)]
 #[cfg_attr(feature = "serialize_secret_state", derive(Serialize, Deserialize))]
 pub struct Strobe {
     /// Internal Keccak state
     pub(crate) st: AlignedKeccakState,
     /// Security parameter (128 or 256)
+    #[zeroize(skip)]
     sec: SecParam,
     /// This is the `R` parameter in the Strobe spec
     rate: usize,
@@ -101,6 +103,7 @@ pub struct Strobe {
     is_receiver: Option<bool>,
     /// The last operation performed. This is to verify that the `more` flag is only used across
     /// identical operations.
+    #[zeroize(skip)]
     prev_flags: Option<OpFlags>,
 }
 
