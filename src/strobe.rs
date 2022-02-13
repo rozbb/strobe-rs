@@ -5,7 +5,7 @@ use crate::{
 
 use bitflags::bitflags;
 use subtle::{self, ConstantTimeEq};
-use zeroize::ZeroizeOnDrop;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 // With this feature on, a user can serialize and deserialize the state of a STROBE session
 #[cfg(feature = "serialize_secret_state")]
@@ -30,6 +30,12 @@ bitflags! {
         const M = 1<<4;
         /// Reserved and currently unimplemented. Using this will cause a panic.
         const K = 1<<5;
+    }
+}
+
+impl Zeroize for OpFlags {
+    fn zeroize(&mut self) {
+        self.bits.zeroize()
     }
 }
 
@@ -103,7 +109,6 @@ pub struct Strobe {
     is_receiver: Option<bool>,
     /// The last operation performed. This is to verify that the `more` flag is only used across
     /// identical operations.
-    #[zeroize(skip)]
     prev_flags: Option<OpFlags>,
 }
 
