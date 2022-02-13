@@ -23,6 +23,7 @@ keccak = "0.1"
 serde = { version = "1", optional = true, default-features = false, features = ["derive"] }
 serde-big-array = { version = "0.3", optional = true }
 subtle = { version = "2.4", default-features = false }
+zeroize = { version = "1.5", features = ["derive"] }
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }

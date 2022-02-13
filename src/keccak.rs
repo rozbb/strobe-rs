@@ -1,4 +1,5 @@
 use byteorder::{ByteOrder, LittleEndian};
+use zeroize::Zeroize;
 
 /// keccak block size in 64-bit words. This is the N parameter in the STROBE spec
 pub const KECCAK_BLOCK_SIZE: usize = 25;
@@ -14,7 +15,7 @@ big_array! { BigArray; 8 * KECCAK_BLOCK_SIZE }
 
 /// This is a wrapper around 200-byte buffer that's always 8-byte aligned to make pointers to it
 /// safely convertible to a pointer to [u64; 25] (since u64 words must be 8-byte aligned)
-#[derive(Clone)]
+#[derive(Clone, Zeroize)]
 #[cfg_attr(feature = "serialize_secret_state", derive(Serialize, Deserialize))]
 #[repr(align(8))]
 pub(crate) struct AlignedKeccakState(
