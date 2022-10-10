@@ -1,7 +1,4 @@
-use crate::{
-    keccak::{keccakf_u8, AlignedKeccakState, KECCAK_BLOCK_SIZE},
-    prelude::*,
-};
+use crate::keccak::{keccakf_u8, AlignedKeccakState, KECCAK_BLOCK_BITLEN_STR, KECCAK_BLOCK_SIZE};
 
 use bitflags::bitflags;
 use subtle::{self, ConstantTimeEq};
@@ -12,7 +9,11 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use serde::{Deserialize, Serialize};
 
 /// Version of Strobe that this crate implements.
-pub const STROBE_VERSION: &str = "1.0.2";
+pub const STROBE_VERSION: &[u8] = b"1.0.2";
+
+/// A placeholder for STROBE version strings. This is the length of the real version strings, for
+/// Keccak-f[1600]
+const TEMPLATE_VERSION_STR: [u8; 29] = *b"Strobe-Keccak-sss/bbbb-vX.Y.Z";
 
 bitflags! {
     /// Operation flags defined in the Strobe paper. This is defined as a bitflags struct.
@@ -49,8 +50,14 @@ pub enum SecParam {
 }
 
 /// An empty struct that just indicates that an error occurred in verifying a MAC
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AuthError;
+
+impl core::fmt::Display for AuthError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("MAC verification failed")
+    }
+}
 
 /// The main Strobe object. This is currently limited to using Keccak-f\[1600\] as the internal
 /// permutation function. For more information on this object, the [protocol specification][spec]
@@ -157,7 +164,7 @@ impl Strobe {
         let mut st_buf = [0u8; KECCAK_BLOCK_SIZE * 8];
         st_buf[0..6].copy_from_slice(&[0x01, (rate as u8) + 2, 0x01, 0x00, 0x01, 0x60]);
         st_buf[6..13].copy_from_slice(b"STROBEv");
-        st_buf[13..18].copy_from_slice(STROBE_VERSION.as_bytes());
+        st_buf[13..18].copy_from_slice(STROBE_VERSION);
 
         let mut st = AlignedKeccakState(st_buf);
         keccakf_u8(&mut st);
@@ -178,16 +185,20 @@ impl Strobe {
         strobe
     }
 
-    /// Returns a string of the form `Strobe-Keccak-<sec>/<b>v<ver>` where `sec` is the bits of
-    /// security (128 or 256), `b` is the block size (in bits) of the Keccak permutation function,
-    /// and `ver` is the protocol version.
-    pub fn version_str(&self) -> String {
-        format!(
-            "Strobe-Keccak-{}/{}-v{}",
-            self.sec as usize,
-            KECCAK_BLOCK_SIZE * 64,
-            STROBE_VERSION
-        )
+    /// Returns a bytestring of the form `Strobe-Keccak-SEC/B-vVER` where `SEC` is the bits of
+    /// security (128 or 256), `B` is the block size (in bits) of the Keccak permutation function,
+    /// and `VER` is the protocol version.
+    pub fn version_str(&self) -> [u8; TEMPLATE_VERSION_STR.len()] {
+        let mut buf = TEMPLATE_VERSION_STR;
+
+        match self.sec {
+            SecParam::B128 => buf[14..17].copy_from_slice(b"128"),
+            SecParam::B256 => buf[14..17].copy_from_slice(b"256"),
+        }
+        buf[18..22].copy_from_slice(KECCAK_BLOCK_BITLEN_STR);
+        buf[24..29].copy_from_slice(STROBE_VERSION);
+
+        buf
     }
 
     /// Validates that the `more` flag is being used correctly. Panics when validation fails.
@@ -557,4 +568,13 @@ impl Strobe {
         OpFlags::A | OpFlags::C,
         "Sets a symmetric cipher key."
     );
+}
+
+#[test]
+fn version_str() {
+    let s128 = Strobe::new(b"version_str test", SecParam::B128);
+    assert_eq!(&s128.version_str(), b"Strobe-Keccak-128/1600-v1.0.2");
+
+    let s256 = Strobe::new(b"version_str test", SecParam::B256);
+    assert_eq!(&s256.version_str(), b"Strobe-Keccak-256/1600-v1.0.2");
 }

@@ -5,12 +5,12 @@
 #[macro_use]
 extern crate std;
 
-#[cfg(not(feature = "std"))]
-#[macro_use]
-extern crate alloc;
+// An Error type is just something that's Debug and Display
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+#[cfg(feature = "std")]
+impl std::error::Error for AuthError {}
 
 //-------- Testing stuff --------//
-
 #[cfg(test)]
 mod basic_tests;
 
@@ -21,7 +21,6 @@ mod kat_tests;
 //-------- Modules and exports--------//
 
 mod keccak;
-mod prelude;
 mod strobe;
 
 pub use crate::strobe::*;

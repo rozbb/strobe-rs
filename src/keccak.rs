@@ -4,6 +4,9 @@ use zeroize::Zeroize;
 /// keccak block size in 64-bit words. This is the N parameter in the STROBE spec
 pub const KECCAK_BLOCK_SIZE: usize = 25;
 
+// This is needed to make the version str
+pub(crate) const KECCAK_BLOCK_BITLEN_STR: &[u8] = b"1600";
+
 // With this feature on, a user can serialize and deserialize the state of a STROBE session
 #[cfg(feature = "serialize_secret_state")]
 use serde::{Deserialize, Serialize};

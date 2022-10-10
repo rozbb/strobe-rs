@@ -8,7 +8,6 @@
 
 use crate::{
     keccak::KECCAK_BLOCK_SIZE,
-    prelude::*,
     strobe::{SecParam, Strobe},
 };
 
@@ -97,6 +96,7 @@ s.send_mac()
 
 print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
+#[cfg(feature = "std")]
 #[test]
 fn test_seq() {
     let mut s = Strobe::new(b"seqtest", SecParam::B256);
@@ -163,11 +163,12 @@ m += s.send_enc("pt", meta_flags=A|T|M, metadata="meta3")
 print("accumulated metadata == [{}]".format(', '.join(map("0x{:02x}".format, m))))
 print("state == [{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
+#[cfg(feature = "std")]
 #[test]
 fn test_metadata() {
     // We will accumulate output over 3 operations and 3 meta-operations
     let mut s = Strobe::new(b"metadatatest", SecParam::B256);
-    let mut output = Vec::new();
+    let mut output = std::vec::Vec::new();
 
     let buf = b"meta1";
     s.meta_send_clr(buf, false);
@@ -303,10 +304,11 @@ fn test_long_inputs() {
 }
 
 // Test that streaming in data using the `more` flag works as expected
+#[cfg(feature = "std")]
 #[test]
 fn test_streaming_correctness() {
     // Compute a few things without breaking up their inputs
-    let one_shot_st: Vec<u8> = {
+    let one_shot_st: std::vec::Vec<u8> = {
         let mut s = Strobe::new(b"streamingtest", SecParam::B256);
 
         s.ad(b"mynonce", false);
@@ -322,7 +324,7 @@ fn test_streaming_correctness() {
         s.st.0.to_vec()
     };
     // Now do the same thing but stream the inputs
-    let streamed_st: Vec<u8> = {
+    let streamed_st: std::vec::Vec<u8> = {
         let mut s = Strobe::new(b"streamingtest", SecParam::B256);
 
         s.ad(b"my", false);
