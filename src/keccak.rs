@@ -8,10 +8,7 @@ pub const KECCAK_BLOCK_SIZE: usize = 25;
 #[cfg(feature = "serialize_secret_state")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "serialize_secret_state")]
-use serde_big_array::big_array;
-// Define a serialization flag for a Keccak state
-#[cfg(feature = "serialize_secret_state")]
-big_array! { BigArray; 8 * KECCAK_BLOCK_SIZE }
+use serde_big_array::BigArray;
 
 /// This is a wrapper around 200-byte buffer that's always 8-byte aligned to make pointers to it
 /// safely convertible to a pointer to [u64; 25] (since u64 words must be 8-byte aligned)
