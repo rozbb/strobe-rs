@@ -49,7 +49,7 @@ pub enum SecParam {
     B256 = 256,
 }
 
-/// An empty struct that just indicates that an error occurred in verifying a MAC
+/// An empty struct that just indicates that MAC verification failed
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AuthError;
 
