@@ -91,7 +91,7 @@ pub struct AuthError;
 ///
 /// Finally, `ratchet` and `meta_ratchet` take a `usize` argument instead of bytes. These functions
 /// are individually commented below.
-#[derive(Clone, ZeroizeOnDrop)]
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
 #[cfg_attr(feature = "serialize_secret_state", derive(Serialize, Deserialize))]
 pub struct Strobe {
     /// Internal Keccak state
