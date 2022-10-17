@@ -89,6 +89,28 @@ jobs:
           command: test
           args: --all-features --target ${{ matrix.rust_target }}
 
+  msrv:
+    name: Current MSRV is 1.51.0
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      # First run `cargo +nightly -Z minimal-verisons check` in order to get a
+      # Cargo.lock with the oldest possible deps
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - run: cargo +nightly -Z minimal-versions check --all-features
+      # Now check that `cargo build` works with respect to the oldest possible
+      # deps and the stated MSRV
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.51.0
+          override: true
+      - run: cargo build --all-features
+
   rustfmt:
     runs-on: ubuntu-latest
     steps:
