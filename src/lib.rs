@@ -67,3 +67,9 @@ mod keccak;
 mod strobe;
 
 pub use crate::strobe::*;
+
+#[cfg(feature = "rand")]
+mod rand;
+
+#[cfg(feature = "rand")]
+pub use rand::StrobeRng;
