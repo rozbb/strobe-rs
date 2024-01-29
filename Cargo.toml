@@ -30,6 +30,7 @@ zeroize = { version = "1.5", features = ["derive"] }
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
 hex = "0.4"
+rand = { version = "0.8", features = ["getrandom"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

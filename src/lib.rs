@@ -61,6 +61,9 @@ mod basic_tests;
 #[cfg(all(test, feature = "std"))]
 mod kat_tests;
 
+#[cfg(all(test, feature = "rand"))]
+mod rand_tests;
+
 //-------- Modules and exports--------//
 
 mod keccak;
@@ -72,4 +75,4 @@ pub use crate::strobe::*;
 mod rand;
 
 #[cfg(feature = "rand")]
-pub use rand::StrobeRng;
+pub use crate::rand::StrobeRng;
