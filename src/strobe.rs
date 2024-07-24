@@ -59,9 +59,9 @@ impl core::fmt::Display for AuthError {
     }
 }
 
-/// The main Strobe object. This is currently limited to using Keccak-f\[1600\] as the internal
-/// permutation function. For more information on this object, the [protocol specification][spec]
-/// is a great resource.
+/// The main Strobe object. This is currently limited to using Keccak-f\[1600\] (the highest
+/// security level) as the internal permutation function. For more information on this object, the
+/// [protocol specification][spec] is a great resource.
 ///
 /// [spec]: https://strobe.sourceforge.io/specs/
 ///
