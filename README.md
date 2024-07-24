@@ -13,7 +13,7 @@ This implementation currently only supports Keccak-f\[1600\] (the highest securi
 Example
 -------
 
-A simple [program](examples/basic.rs) that does authenticated encryption and decryption:
+A simple [example](https://github.com/rozbb/strobe-rs/blob/master/examples/basic.rs) that does authenticated encryption and decryption:
 
 ```rust
 use strobe_rs::{SecParam, Strobe};
@@ -71,7 +71,7 @@ Default features flags: _none_
 Feature flag list:
 
 * `std` — Implements `std::error::Error` for `AuthError`.
-* `asm` — Enables an optimized assembly implementation of the Keccak permutation, if available. Assembly currently only exists for ARMv8.
+* `asm` — Enables optimized assembly for the Keccak permutation, if available. Assembly currently only exists for ARMv8.
 * `serialize_secret_state` — Implements `serde`'s `Serialize` and `Deserialize` traits for the `Strobe` struct. **SECURITY NOTE**: Serializing Strobe state outputs security sensitive data that MUST be kept private. Treat the data as you would a private encryption/decryption key.
 
 For info on how to omit or include feature flags, see the [cargo docs on features](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features).
