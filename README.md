@@ -85,8 +85,9 @@ Tests
 -----
 
 To run tests, execute
-
-    cargo test --features "std"
+```shell
+cargo test --features "std"
+```
 
 This includes known-answer tests, which test against JSON-encoded test vectors in the [kat/](kat/) directory. To verify these test vectors against the reference Python implementation, `cd` into `kat/`, run `python2 verify_test_vector.py` and follow the included instructions.
 
@@ -94,8 +95,9 @@ Benchmarks
 ----------
 
 To benchmark, run
-
-    cargo bench
+```shell
+cargo bench
+```
 
 This will produce a summary with plots in `target/crieteron/report/index.html`. These won't be very interesting, since almost every function in STROBE has the same runtime.
 
