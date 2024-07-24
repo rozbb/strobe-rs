@@ -5,9 +5,10 @@ strobe-rs
 [![Version](https://img.shields.io/crates/v/strobe-rs.svg)](https://crates.io/crates/strobe-rs)
 [![Docs](https://docs.rs/strobe-rs/badge.svg)](https://docs.rs/strobe-rs)
 
-This is a pure Rust, `no_std` implementation of the [Strobe protocol framework][strobe]. It is intended to be used as a library to build other protocols and frameworks. This implementation currently only supports Keccak-f\[1600\] (the highest security level) as the internal permutation function.
+This is a pure Rust, `no_std` implementation of the [Strobe protocol framework](https://strobe.sourceforge.io/). The designer's description:
+> Strobe is a new framework for cryptographic protocols. It can also be used for regular encryption. Its goals are to make cryptographic protocols much simpler to develop, deploy and analyze; and to fit into even tiny IoT devices. To that end, it uses only one block function — Keccak-f — to encrypt and authenticate messages.
 
-[strobe]: https://strobe.sourceforge.io/
+This implementation currently only supports Keccak-f\[1600\] (the highest security level) as the internal permutation function.
 
 Example
 -------
@@ -65,7 +66,7 @@ fn main() {
 Features
 --------
 
-Default features flags: [none]
+Default features flags: _none_
 
 Feature flag list:
 
@@ -85,7 +86,7 @@ Tests
 
 To run tests, execute
 
-    cargo test --all-features
+    cargo test --features "std"
 
 This includes known-answer tests, which test against JSON-encoded test vectors in the [kat/](kat/) directory. To verify these test vectors against the reference Python implementation, `cd` into `kat/`, run `python2 verify_test_vector.py` and follow the included instructions.
 
@@ -96,7 +97,7 @@ To benchmark, run
 
     cargo bench
 
-This will produce a summary with plots in `target/crieteron/report/index.html`. These won't be very interesting, since almost every function in  STROBE has the same runtime.
+This will produce a summary with plots in `target/crieteron/report/index.html`. These won't be very interesting, since almost every function in STROBE has the same runtime.
 
 License
 -------
