@@ -229,6 +229,9 @@ s = Strobe("bigtest", security=256)
 # Just a big number and a big slice of data
 big_n = 9823
 big_data = [0x34] * big_n
+# A smaller number. This is used for the MAC length
+small_n = 9823
+small_data = [0x35] * small_n
 
 # Run these bad boys through every operation and meta-operation we can
 
@@ -241,14 +244,14 @@ s.recv_enc(big_data, meta_flags=I|A|C|T|M, metadata=big_data)
 
 # We have to do meta_recv_mac and recv_mac separately, because if we do it as the ops above, it'll
 # panic on meta_recv_mac (which is called inside recv_mac) and never reach the rest of the recv_mac
-try: s.operate(I|C|T|M, big_data)
+try: s.operate(I|C|T|M, small_data)
 except: pass
-try: s.operate(I|C|T, big_data)
+try: s.operate(I|C|T, small_data)
 except: pass
 
 s.ratchet(big_n, meta_flags=C|M, metadata=big_n)
 s.prf(big_n, meta_flags=I|A|C|M, metadata=big_n)
-s.send_mac(big_n, meta_flags=C|T|M, metadata=big_n)
+s.send_mac(small_n, meta_flags=C|T|M, metadata=small_n)
 
 print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
@@ -256,7 +259,9 @@ print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 fn test_long_inputs() {
     let mut s = Strobe::new(b"bigtest", SecParam::B256);
     const BIG_N: usize = 9823;
-    let big_data = [0x34; BIG_N];
+    const SMALL_N: usize = 64;
+    let big_data = [0x34u8; BIG_N];
+    let small_data = [0x35u8; SMALL_N];
 
     s.meta_ad(&big_data[..], false);
     s.ad(&big_data[..], false);
@@ -271,8 +276,8 @@ fn test_long_inputs() {
     s.send_enc(big_data.to_vec().as_mut_slice(), false);
     s.meta_recv_enc(big_data.to_vec().as_mut_slice(), false);
     s.recv_enc(big_data.to_vec().as_mut_slice(), false);
-    let _ = s.meta_recv_mac(big_data.to_vec().as_mut_slice());
-    let _ = s.recv_mac(big_data.to_vec().as_mut_slice());
+    let _ = s.meta_recv_mac(&small_data.try_into().unwrap());
+    let _ = s.recv_mac(&small_data.try_into().unwrap());
 
     let mut big_buf = [0u8; BIG_N];
 
@@ -431,15 +436,12 @@ fn test_mac_correctness_and_soundness() {
 
     // Test that valid MACs are accepted
     let mut rx_copy = rx.clone();
-    let good_res = rx_copy.recv_mac(&mut mac[..]);
+    let good_res = rx_copy.recv_mac(&mac.try_into().unwrap());
     assert!(good_res.is_ok());
 
-    // Test that invalid MACs are rejected
-    let mut bad_mac = {
-        let mut tmp = mac.to_vec();
-        tmp.push(0);
-        tmp
-    };
-    let bad_res = rx.recv_mac(&mut bad_mac[..]);
+    // Test that invalid MACs are rejected. Flip a bit
+    let mut bad_mac = mac;
+    bad_mac[0] ^= 1;
+    let bad_res = rx.recv_mac(&bad_mac.try_into().unwrap());
     assert!(bad_res.is_err());
 }

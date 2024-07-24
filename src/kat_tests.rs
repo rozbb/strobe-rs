@@ -101,7 +101,7 @@ fn get_op(op_name: String, meta: bool) -> Box<dyn for<'a> Fn(&mut Strobe, DataOr
         };
 
         // Note: we don't expect recv_MAC to work on random inputs. We test recv_MAC's
-        // correctness in strobe.rs
+        // correctness in strobe.rs. Also MAC sizes are 14 bytes in the KAT.
         if !meta {
             match op_name.as_str() {
                 "AD" => s.ad(data, more),
@@ -112,7 +112,9 @@ fn get_op(op_name: String, meta: bool) -> Box<dyn for<'a> Fn(&mut Strobe, DataOr
                 "send_ENC" => s.send_enc(data, more),
                 "recv_ENC" => s.recv_enc(data, more),
                 "send_MAC" => s.send_mac(data, more),
-                "recv_MAC" => s.recv_mac(data).unwrap_or(()),
+                "recv_MAC" => s
+                    .recv_mac::<14>(data.as_ref().try_into().unwrap())
+                    .unwrap_or(()),
                 "RATCHET" => panic!("Got RATCHET op without length input"),
                 _ => panic!("Unexpected op name: {}", op_name),
             }
@@ -126,7 +128,9 @@ fn get_op(op_name: String, meta: bool) -> Box<dyn for<'a> Fn(&mut Strobe, DataOr
                 "send_ENC" => s.meta_send_enc(data, more),
                 "recv_ENC" => s.meta_recv_enc(data, more),
                 "send_MAC" => s.meta_send_mac(data, more),
-                "recv_MAC" => s.meta_recv_mac(data).unwrap_or(()),
+                "recv_MAC" => s
+                    .meta_recv_mac::<14>(data.as_ref().try_into().unwrap())
+                    .unwrap_or(()),
                 "RATCHET" => panic!("Got RATCHET op without length input"),
                 _ => panic!("Unexpected op name: {}", op_name),
             }

@@ -6,7 +6,7 @@ strobe-rs
 [![Version](https://img.shields.io/crates/v/strobe-rs.svg)](https://crates.io/crates/strobe-rs)
 [![Docs](https://docs.rs/strobe-rs/badge.svg)](https://docs.rs/strobe-rs)
 
-This is a relatively barebones, `no_std` implementation of the [Strobe protocol framework][strobe] in pure Rust. It is intended to be used as a library to build other protocols and frameworks. This implementation currently only supports Keccak-f\[1600\] as the internal permutation function, which is the largest possible block size, so big deal.
+This is a pure Rust, `no_std` implementation of the [Strobe protocol framework][strobe]. It is intended to be used as a library to build other protocols and frameworks. This implementation currently only supports Keccak-f\[1600\] as the internal permutation function, which is the largest possible block size, so big deal.
 
 [strobe]: https://strobe.sourceforge.io/
 
@@ -18,25 +18,45 @@ A simple [program](examples/basic.rs) that encrypts and decrypts a message:
 ```rust
 use strobe_rs::{SecParam, Strobe};
 
+use rand::RngCore;
+
 fn main() {
-    let mut rx = Strobe::new(b"correctnesstest", SecParam::B256);
+    let mut rng = rand::thread_rng();
+
+    // Sender and receiver
     let mut tx = Strobe::new(b"correctnesstest", SecParam::B256);
+    let mut rx = Strobe::new(b"correctnesstest", SecParam::B256);
 
-    rx.key(b"the-combination-on-my-luggage", false);
-    tx.key(b"the-combination-on-my-luggage", false);
+    // Key both sides with a predetermined key
+    let k = b"the-combination-on-my-luggage";
+    tx.key(k, false);
+    rx.key(k, false);
 
-    let mut msg = b"Attack at dawn".to_vec();
-    rx.send_enc(msg.as_mut_slice(), false);
+    // Have the transmitter sample and send a nonce in the clear
+    let mut nonce = [0u8; 24];
+    rng.fill_bytes(&mut nonce);
+    rx.recv_clr(&nonce, false);
+    tx.send_clr(&nonce, false);
 
-    // Rename for clarity. `msg` has been encrypted in-place.
-    let mut ciphertext = msg;
+    // Have the transmitter send an authenticated ciphertext
+    let orig_msg = b"groceries: kaymac, ajvar, cream, diced onion, red pepper, grilled meat";
+    let mut msg_buf = *orig_msg;
+    tx.send_enc(&mut msg_buf, false);
+    let mut mac = [0u8; 32];
+    tx.send_mac(&mut mac, false);
 
-    tx.recv_enc(ciphertext.as_mut_slice(), false);
+    // Rename for clarity. `msg_buf` has been encrypted in-place.
+    let mut ciphertext = msg_buf;
 
-    // And back again.
+    // Have the receiver receive the ciphertext and MAC
+    rx.recv_enc(ciphertext.as_mut_slice(), false);
+    let res = rx.recv_mac(&mac);
+
+    // Check that the MAC verifies
+    assert!(res.is_ok());
+    // Check that the decrypted ciphertext equals the original plaintext
     let round_trip_msg = ciphertext;
-
-    assert_eq!(&round_trip_msg, b"Attack at dawn");
+    assert_eq!(&round_trip_msg, orig_msg);
 }
 ```
 
