@@ -2,7 +2,6 @@ strobe-rs
 =========
 
 [![CI](https://github.com/rozbb/strobe-rs/workflows/CI/badge.svg)](https://github.com/rozbb/strobe-rs/actions)
-[![Coverage](https://codecov.io/gh/rozbb/strobe-rs/branch/master/graph/badge.svg)](https://codecov.io/gh/rozbb/strobe-rs)
 [![Version](https://img.shields.io/crates/v/strobe-rs.svg)](https://crates.io/crates/strobe-rs)
 [![Docs](https://docs.rs/strobe-rs/badge.svg)](https://docs.rs/strobe-rs)
 
