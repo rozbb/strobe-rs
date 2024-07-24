@@ -13,12 +13,15 @@ This is a pure Rust, `no_std` implementation of the [Strobe protocol framework][
 Example
 -------
 
-A simple [program](examples/basic.rs) that encrypts and decrypts a message:
+A simple [program](examples/basic.rs) that does authenticated encryption and decryption:
 
 ```rust
 use strobe_rs::{SecParam, Strobe};
 
 use rand::RngCore;
+
+// NOTE: This is just a simple authenticated encryption scheme. For a robust AEAD construction,
+// see the example at https://strobe.sourceforge.io/examples/aead/
 
 fn main() {
     let mut rng = rand::thread_rng();
@@ -32,13 +35,13 @@ fn main() {
     tx.key(k, false);
     rx.key(k, false);
 
-    // Have the transmitter sample and send a nonce in the clear
+    // Have the transmitter sample and send a nonce (192 bits) in the clear
     let mut nonce = [0u8; 24];
     rng.fill_bytes(&mut nonce);
     rx.recv_clr(&nonce, false);
     tx.send_clr(&nonce, false);
 
-    // Have the transmitter send an authenticated ciphertext
+    // Have the transmitter send an authenticated ciphertext (with a 256 bit MAC)
     let orig_msg = b"groceries: kaymac, ajvar, cream, diced onion, red pepper, grilled meat";
     let mut msg_buf = *orig_msg;
     tx.send_enc(&mut msg_buf, false);
