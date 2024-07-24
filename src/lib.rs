@@ -1,3 +1,4 @@
+#![allow(clippy::needless_doctest_main)]
 #![doc = include_str!("../README.md")]
 // The doc_auto_cfg feature is only available in nightly. It auto-marks items in documentation as
 // dependent on specific features.
