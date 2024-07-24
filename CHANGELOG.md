@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unrelease
 
 * Made `(meta_)recv_mac` inputs take a `&[u8; N]` rather than a `&mut [u8]`
+* Bumped MSRV to 1.60.0 (May 2022)
 
 ## [0.8.1] - 2022-10-10
 
