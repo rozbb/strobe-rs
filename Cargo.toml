@@ -14,6 +14,7 @@ categories = ["cryptography", "no-std"]
 [features]
 default = []
 std = []
+asm = ["keccak/asm"]
 serialize_secret_state = ["serde", "serde-big-array"]
 
 [dependencies]

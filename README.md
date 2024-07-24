@@ -5,7 +5,7 @@ strobe-rs
 [![Version](https://img.shields.io/crates/v/strobe-rs.svg)](https://crates.io/crates/strobe-rs)
 [![Docs](https://docs.rs/strobe-rs/badge.svg)](https://docs.rs/strobe-rs)
 
-This is a pure Rust, `no_std` implementation of the [Strobe protocol framework][strobe]. It is intended to be used as a library to build other protocols and frameworks. This implementation currently only supports Keccak-f\[1600\] as the internal permutation function, which is the largest possible block size, so big deal.
+This is a pure Rust, `no_std` implementation of the [Strobe protocol framework][strobe]. It is intended to be used as a library to build other protocols and frameworks. This implementation currently only supports Keccak-f\[1600\] (the highest security level) as the internal permutation function.
 
 [strobe]: https://strobe.sourceforge.io/
 
@@ -69,8 +69,9 @@ Default features flags: [none]
 
 Feature flag list:
 
-* `std` - Implements `std::error::Error` for `AuthError`.
-* `serialize_secret_state` - Implements `serde`'s `Serialize` and `Deserialize` traits for the `Strobe` struct. **SECURITY NOTE**: Serializing Strobe state outputs security sensitive data that MUST be kept private. Treat the data as you would a private encryption/decryption key.
+* `std` — Implements `std::error::Error` for `AuthError`.
+* `asm` — Enables an optimized assembly implementation of the Keccak permutation, if available. Assembly currently only exists for ARMv8.
+* `serialize_secret_state` — Implements `serde`'s `Serialize` and `Deserialize` traits for the `Strobe` struct. **SECURITY NOTE**: Serializing Strobe state outputs security sensitive data that MUST be kept private. Treat the data as you would a private encryption/decryption key.
 
 For info on how to omit or include feature flags, see the [cargo docs on features](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features).
 
@@ -96,11 +97,6 @@ To benchmark, run
     cargo bench
 
 This will produce a summary with plots in `target/crieteron/report/index.html`. These won't be very interesting, since almost every function in  STROBE has the same runtime.
-
-TODO
-----
-
-* Contribute an asm impelmentation of Keccak-f\[1600\] to tiny-keccak and expose a feature flag that lets `strobe-rs` users choose which implementation they prefer.
 
 License
 -------
