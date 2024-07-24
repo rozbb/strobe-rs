@@ -1,150 +1,64 @@
 name: CI
+
 on:
-  # Run CI on new pushes to the repo or any pull requests.
-  # If only the README file changed, ignore.
-  pull_request:
-    paths-ignore:
-      - README.md
   push:
-    branches: master
-    paths-ignore:
-      - README.md
-  # Allow CI workflow to be run manually
-  workflow_dispatch:
-  # Run CI at least once a month no matter what
-  schedule:
-    - cron: '0 1 1 */1 *'
+    branches: ["**"]
+    paths-ignore: ["README.md", "CHANGELOG.md"]
+  pull_request:
+    branches: ["**"]
+    paths-ignore: ["README.md", "CHANGELOG.md"]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
 
 jobs:
   test:
-    strategy:
-      matrix:
-        platform:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-        toolchain:
-          - stable
-          - nightly
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.toolchain }}
-          override: true
-
-      - name: Run cargo test --no-default-features
-        env:
-          CARGO_INCREMENTAL: 0
-          RUSTFLAGS: -D warnings
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --no-default-features
-
-      - name: Run cargo test --all-features
-        env:
-          CARGO_INCREMENTAL: 0
-          RUSTFLAGS: -D warnings
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features
-
-  cross-linux-test:
+    name: Test on Rust stable
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        rust_target:
-          # Other interesting archs here:
-          # https://github.com/rust-embedded/cross/tree/master/docker
-          - i686-unknown-linux-gnu
-          - powerpc-unknown-linux-gnu
-    timeout-minutes: 10
+        include:
+          # 32-bit big-endian target
+          - target: powerpc-unknown-linux-gnu
+            deps: sudo apt update && sudo apt install gcc-multilib
+
+          # 64-bit target
+          - target: x86_64-unknown-linux-gnu
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-            toolchain: stable
-            profile: minimal
-            target: ${{ matrix.rust_target }}
-            default: true
-
-      - name: Test
-        env:
-          CARGO_INCREMENTAL: 0
-          RUSTFLAGS: -D warnings
-        uses: actions-rs/cargo@v1
-        with:
-          # see https://github.com/rust-embedded/cross
-          use-cross: true
-          command: test
-          args: --all-features --target ${{ matrix.rust_target }}
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test
 
   rustfmt:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --all -- --check
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: rustfmt
-
-      - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
           components: clippy
       - run: cargo clippy --all-features -- -D warnings
 
-  codecov:
+  # Test no_std build-only
+  build-nostd:
+    name: Build on no_std target (thumbv7em-none-eabi)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          override: true
-
-      - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        env:
-          CARGO_INCREMENTAL: 0
-        with:
-          version: 0.15.0
-          args: --all-features
-
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v1.0.2
-        with:
-          token: ${{secrets.CODECOV_TOKEN}}
-
-      - name: Archive code coverage results
-        uses: actions/upload-artifact@v1
-        with:
-          name: code-coverage-report
-          path: cobertura.xml
+          targets: thumbv7em-none-eabi
+      - uses: taiki-e/install-action@cargo-hack
+      # No default features build
+      - name: no_std / no feat
+        run: cargo build --target thumbv7em-none-eabi --release --no-default-features
+      - name: no_std / cargo hack
+        run: cargo hack build --target thumbv7em-none-eabi --release --each-feature --exclude-features default,std

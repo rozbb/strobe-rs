@@ -435,7 +435,14 @@ impl Strobe {
 
     // This is separately defined because it's the only method that can return a `Result`. See docs
     // for recv_mac and meta_recv_mac.
-    fn generalized_recv_mac(&mut self, data: &mut [u8], is_meta: bool) -> Result<(), AuthError> {
+    fn generalized_recv_mac<const N: usize>(
+        &mut self,
+        mac: &[u8; N],
+        is_meta: bool,
+    ) -> Result<(), AuthError> {
+        // Make a temp buffer for the MAC. This is because operate() mutates the buffer
+        let mut mac_copy = *mac;
+
         // These are the (meta_)recv_mac flags
         let flags = if is_meta {
             OpFlags::I | OpFlags::C | OpFlags::T | OpFlags::M
@@ -443,13 +450,16 @@ impl Strobe {
             OpFlags::I | OpFlags::C | OpFlags::T
         };
         // recv_mac can never be streamed
-        self.operate(flags, data, /* more */ false);
+        self.operate(flags, &mut mac_copy, /* more */ false);
 
         // Constant-time MAC check. This accumulates the truth values of byte == 0
         let mut all_zero = subtle::Choice::from(1u8);
-        for b in data {
+        for b in mac_copy {
             all_zero &= b.ct_eq(&0u8);
         }
+
+        // Zeroize the temp buffer
+        mac_copy.zeroize();
 
         // If the buffer isn't all zeros, that's an invalid MAC
         if !bool::from(all_zero) {
@@ -460,17 +470,15 @@ impl Strobe {
     }
 
     /// Attempts to authenticate the current state against the given MAC. On failure, it returns an
-    /// `AuthError`. It behooves the user of this library to check this return value and overreact
-    /// on error.
-    pub fn recv_mac(&mut self, data: &mut [u8]) -> Result<(), AuthError> {
-        self.generalized_recv_mac(data, /* is_meta */ false)
+    /// `AuthError`.
+    pub fn recv_mac<const N: usize>(&mut self, mac: &[u8; N]) -> Result<(), AuthError> {
+        self.generalized_recv_mac(mac, /* is_meta */ false)
     }
 
     /// Attempts to authenticate the current state against the given MAC. On failure, it returns an
-    /// `AuthError`. It behooves the user of this library to check this return value and overreact
-    /// on error.
-    pub fn meta_recv_mac(&mut self, data: &mut [u8]) -> Result<(), AuthError> {
-        self.generalized_recv_mac(data, /* is_meta */ true)
+    /// `AuthError`.
+    pub fn meta_recv_mac<const N: usize>(&mut self, mac: &[u8; N]) -> Result<(), AuthError> {
+        self.generalized_recv_mac(mac, /* is_meta */ true)
     }
 
     // This is separately defined because it's the only method that takes an integer and mutates
