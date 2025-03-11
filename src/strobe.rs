@@ -1,6 +1,6 @@
 use crate::keccak::{keccakf_u8, AlignedKeccakState, KECCAK_BLOCK_BITLEN_STR, KECCAK_BLOCK_SIZE};
 
-use bitflags::bitflags;
+use bitflags::{bitflags, Flags};
 use subtle::{self, ConstantTimeEq};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -18,6 +18,7 @@ const TEMPLATE_VERSION_STR: [u8; 29] = *b"Strobe-Keccak-sss/bbbb-vX.Y.Z";
 bitflags! {
     /// Operation flags defined in the Strobe paper. This is defined as a bitflags struct.
     #[cfg_attr(feature = "serialize_secret_state", derive(Serialize, Deserialize))]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub(crate) struct OpFlags: u8 {
         /// Is data being moved inbound
         const I = 1<<0;
@@ -36,7 +37,7 @@ bitflags! {
 
 impl Zeroize for OpFlags {
     fn zeroize(&mut self) {
-        self.bits.zeroize()
+        self.clear();
     }
 }
 
