@@ -1,12 +1,12 @@
 use crate::keccak::{keccakf_u8, AlignedKeccakState, KECCAK_BLOCK_BITLEN_STR, KECCAK_BLOCK_SIZE};
 
-use bitflags::{bitflags, Flags};
+use bitflags::bitflags;
 use subtle::{self, ConstantTimeEq};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 // With this feature on, a user can serialize and deserialize the state of a STROBE session
 #[cfg(feature = "serialize_secret_state")]
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Version of Strobe that this crate implements.
 pub const STROBE_VERSION: &[u8] = b"1.0.2";
@@ -17,7 +17,6 @@ const TEMPLATE_VERSION_STR: [u8; 29] = *b"Strobe-Keccak-sss/bbbb-vX.Y.Z";
 
 bitflags! {
     /// Operation flags defined in the Strobe paper. This is defined as a bitflags struct.
-    #[cfg_attr(feature = "serialize_secret_state", derive(Serialize, Deserialize))]
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub(crate) struct OpFlags: u8 {
         /// Is data being moved inbound
@@ -35,9 +34,25 @@ bitflags! {
     }
 }
 
+#[cfg(feature = "serialize_secret_state")]
+impl Serialize for OpFlags {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        bitflags_serde_legacy::serialize(self, "OpFlags", serializer)
+    }
+}
+
+#[cfg(feature = "serialize_secret_state")]
+impl<'de> Deserialize<'de> for OpFlags {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        bitflags_serde_legacy::deserialize("OpFlags", deserializer)
+    }
+}
+
 impl Zeroize for OpFlags {
     fn zeroize(&mut self) {
-        self.clear();
+        unsafe {
+            core::ptr::write_volatile(self, OpFlags::empty());
+        }
     }
 }
 

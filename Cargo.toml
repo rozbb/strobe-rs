@@ -19,6 +19,7 @@ serialize_secret_state = ["serde", "serde-big-array"]
 
 [dependencies]
 bitflags = "2.9"
+bitflags-serde-legacy = "0.1.1"
 byteorder = { version = "1.5", default-features = false }
 keccak = "0.1"
 serde = { version = "1", optional = true, default-features = false, features = [
