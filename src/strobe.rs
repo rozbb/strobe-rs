@@ -50,9 +50,7 @@ impl<'de> Deserialize<'de> for OpFlags {
 
 impl Zeroize for OpFlags {
     fn zeroize(&mut self) {
-        unsafe {
-            core::ptr::write_volatile(self, OpFlags::empty());
-        }
+        self.0 .0.zeroize();
     }
 }
 
