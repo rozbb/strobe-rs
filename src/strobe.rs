@@ -71,7 +71,7 @@ impl core::fmt::Display for AuthError {
 ///
 /// * `data` - The input data to the operation.
 /// * `more` - For streaming purposes. Specifies whether you're trying to add more input / get more
-///            output to/from the previous operation. For example:
+///   output to/from the previous operation. For example:
 ///
 /// ```rust
 /// # extern crate strobe_rs;
