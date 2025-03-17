@@ -64,12 +64,12 @@ jobs:
         run: cargo hack build --target thumbv7em-none-eabi --release --each-feature --exclude-features default,std
 
   msrv:
-    name: Check that the rust-version field in Cargo.toml is compatible with the crate
+    name: rust-version is MSRV
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo install cargo-msrv --no-default-features
-      - run: cargo msrv --version
-      - run: cargo msrv verify
+      - run: cargo +nightly install cargo-msrv --no-default-features
+      - run: cargo +nightly msrv --version
+      - run: cargo +nightly msrv verify
