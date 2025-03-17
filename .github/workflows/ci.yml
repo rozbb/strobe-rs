@@ -75,3 +75,14 @@ jobs:
       # deps and the stated MSRV
       - uses: dtolnay/rust-toolchain@1.60.0
       - run: cargo build --all-features
+
+  msrv:
+    name: Check that the rust-version field in Cargo.toml is compatible with the crate
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-msrv --no-default-features
+      - run: cargo msrv --version
+      - run: cargo msrv verify -- cargo check --all-features
