@@ -27,4 +27,3 @@ pub use crate::strobe::*;
 
 // An Error type is just something that's Debug and Display
 impl core::error::Error for AuthError {}
-
