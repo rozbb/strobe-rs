@@ -70,16 +70,16 @@ Default features flags: _none_
 
 Feature flag list:
 
-* `std` — Implements `std::error::Error` for `AuthError`.
 * `asm` — Enables optimized assembly for the Keccak permutation, if available. Assembly currently only exists for ARMv8.
 * `serialize_secret_state` — Implements `serde`'s `Serialize` and `Deserialize` traits for the `Strobe` struct. **SECURITY NOTE**: Serializing Strobe state outputs security sensitive data that MUST be kept private. Treat the data as you would a private encryption/decryption key.
+* `std` — Required for running known-answer tests. Use only when testing.
 
 For info on how to omit or include feature flags, see the [cargo docs on features](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features).
 
 MSRV
 ----
 
-The current minimum supported Rust version (MSRV) is 1.60.0 (2022-04-04).
+The current minimum supported Rust version (MSRV) is 1.81.0 (2024-09-04).
 
 Tests
 -----

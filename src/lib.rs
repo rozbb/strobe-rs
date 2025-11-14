@@ -6,13 +6,9 @@
 //-------- no_std stuff --------//
 #![no_std]
 
-#[cfg(feature = "std")]
+#[cfg(all(test, feature = "std"))]
 #[macro_use]
 extern crate std;
-
-// An Error type is just something that's Debug and Display
-#[cfg(feature = "std")]
-impl std::error::Error for AuthError {}
 
 //-------- Testing stuff --------//
 #[cfg(test)]
@@ -28,3 +24,6 @@ mod keccak;
 mod strobe;
 
 pub use crate::strobe::*;
+
+// An Error type is just something that's Debug and Display
+impl core::error::Error for AuthError {}
