@@ -28,8 +28,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-      # Use the modern stable Rust, not the MSRV in rust-toolchain.toml
-      - run: rustup override set stable && cargo update
       - run: cargo --version
       - run: cargo test --all-features
 
@@ -38,8 +36,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-      # Use the modern stable Rust, not the MSRV in rust-toolchain.toml
-      - run: rustup override set stable && cargo update
       - run: cargo fmt --all -- --check
 
   clippy:
@@ -49,8 +45,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      # Use the modern stable Rust, not the MSRV in rust-toolchain.toml
-      - run: rustup override set stable && cargo update
       - run: cargo clippy --all-features -- -D warnings
 
   # Test no_std build-only
@@ -64,8 +58,6 @@ jobs:
           toolchain: stable
           targets: thumbv7em-none-eabi
       - uses: taiki-e/install-action@cargo-hack
-      # Use the modern stable Rust, not the MSRV in rust-toolchain.toml
-      - run: rustup override set stable && cargo update
       # No default features build
       - name: no_std / no feat
         run: cargo build --target thumbv7em-none-eabi --release --no-default-features
@@ -81,4 +73,4 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo +nightly install cargo-msrv --no-default-features
       - run: cargo +nightly msrv --version
-      - run: cargo +nightly msrv verify
+      - run: cargo +nightly msrv verify --all-features
