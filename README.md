@@ -79,9 +79,7 @@ For info on how to omit or include feature flags, see the [cargo docs on feature
 MSRV
 ----
 
-The current minimum supported Rust version (MSRV) is 1.60.0 (2022-04-04).
-
-**Caveat:** The `asm` feature requires version 1.61 (2022-05-19).
+The current minimum supported Rust version (MSRV) is 1.72.1 (2023-09-19).
 
 Tests
 -----
