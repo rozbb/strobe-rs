@@ -6,7 +6,7 @@
 //-------- no_std stuff --------//
 #![no_std]
 
-#[cfg(all(test, feature = "std"))]
+#[cfg(all(test, feature = "kat"))]
 #[macro_use]
 extern crate std;
 
@@ -14,8 +14,7 @@ extern crate std;
 #[cfg(test)]
 mod basic_tests;
 
-// kat_tests requires std
-#[cfg(all(test, feature = "std"))]
+#[cfg(all(test, feature = "kat"))]
 mod kat_tests;
 
 //-------- Modules and exports--------//

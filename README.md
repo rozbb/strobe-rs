@@ -71,7 +71,7 @@ Feature flag list:
 
 * `asm` — Enables optimized assembly for the Keccak permutation, if available. Assembly currently only exists for ARMv8.
 * `serialize_secret_state` — Implements `serde`'s `Serialize` and `Deserialize` traits for the `Strobe` struct. **SECURITY NOTE**: Serializing Strobe state outputs security sensitive data that MUST be kept private. Treat the data as you would a private encryption/decryption key.
-* `std` — Required for running known-answer tests. Use only when testing.
+* `kat` — Required for running known-answer tests. Use only when testing.
 
 For info on how to omit or include feature flags, see the [cargo docs on features](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features).
 
