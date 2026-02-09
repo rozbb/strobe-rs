@@ -113,7 +113,7 @@ impl core::fmt::Display for AuthError {
 pub struct Strobe {
     /// Internal Keccak state
     pub(crate) st: AlignedKeccakState,
-    /// Security parameter (128 or 256)
+    /// Security parameter (128 or 256 bits)
     #[zeroize(skip)]
     sec: SecParam,
     /// This is the `R` parameter in the Strobe spec
@@ -195,9 +195,10 @@ impl Strobe {
         strobe
     }
 
-    /// Returns a bytestring of the form `Strobe-Keccak-SEC/B-vVER` where `SEC` is the bits of
-    /// security (128 or 256), `B` is the block size (in bits) of the Keccak permutation function,
-    /// and `VER` is the protocol version.
+    /// Returns a bytestring of the form `Strobe-Keccak-SEC/B-vVER` where `SEC` is the
+    /// bits of security (128 or 256), `B` is the block size (in bits) of the Keccak
+    /// permutation function (currently this can only be 1600), and `VER` is the protocol
+    /// version.
     pub fn version_str(&self) -> [u8; TEMPLATE_VERSION_STR.len()] {
         let mut buf = TEMPLATE_VERSION_STR;
 
@@ -511,7 +512,9 @@ impl Strobe {
         self.zero_state(num_bytes_to_zero);
     }
 
-    /// Ratchets the internal state forward in an irreversible way by zeroing bytes.
+    /// Ratchets the internal state forward in an irreversible way by zeroing bytes. If
+    /// the security parameter is 128, then `num_bytes_to_zero = 16` is sufficient. If
+    /// it's 256, then `num_bytes_to_zero = 32` is sufficient.
     ///
     /// Takes a `usize` argument specifying the number of bytes of public state to zero. If the
     /// size exceeds `self.rate`, Keccak-f will be called before more bytes are zeroed.
