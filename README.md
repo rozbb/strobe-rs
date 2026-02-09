@@ -83,7 +83,7 @@ Tests
 
 To run tests, execute
 ```shell
-cargo test --features "std"
+cargo test --features "kat"
 ```
 
 This includes known-answer tests, which test against JSON-encoded test vectors in the [kat/](kat/) directory. To verify these test vectors against the reference Python implementation, `cd` into `kat/`, run `python2 verify_test_vector.py` and follow the included instructions.
