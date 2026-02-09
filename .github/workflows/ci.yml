@@ -27,7 +27,7 @@ jobs:
           - target: x86_64-unknown-linux-gnu
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.91.1
       - run: cargo --version
       - run: cargo test --all-features
 
@@ -35,14 +35,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.91.1
       - run: cargo fmt --all -- --check
 
   clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.91.1
         with:
           components: clippy
       - run: cargo clippy --all-features -- -D warnings
@@ -55,14 +55,14 @@ jobs:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: "1.91.1"
           targets: thumbv7em-none-eabi
       - uses: taiki-e/install-action@cargo-hack
       # No default features build
       - name: no_std / no feat
         run: cargo build --target thumbv7em-none-eabi --release --no-default-features
       - name: no_std / cargo hack
-        run: cargo hack build --target thumbv7em-none-eabi --release --each-feature --exclude-features default,std
+        run: cargo hack build --target thumbv7em-none-eabi --release --each-feature --exclude-features default,kat
 
   msrv:
     name: rust-version is MSRV
@@ -70,7 +70,7 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.91.1
       - run: cargo +nightly install cargo-msrv --no-default-features
       - run: cargo +nightly msrv --version
       - run: cargo +nightly msrv verify --all-features

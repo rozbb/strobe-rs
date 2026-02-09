@@ -96,7 +96,7 @@ s.send_mac()
 
 print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
-#[cfg(feature = "std")]
+#[cfg(feature = "kat")]
 #[test]
 fn test_seq() {
     let mut s = Strobe::new(b"seqtest", SecParam::B256);
@@ -163,7 +163,7 @@ m += s.send_enc("pt", meta_flags=A|T|M, metadata="meta3")
 print("accumulated metadata == [{}]".format(', '.join(map("0x{:02x}".format, m))))
 print("state == [{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
-#[cfg(feature = "std")]
+#[cfg(feature = "kat")]
 #[test]
 fn test_metadata() {
     // We will accumulate output over 3 operations and 3 meta-operations
@@ -310,7 +310,7 @@ fn test_long_inputs() {
 }
 
 // Test that streaming in data using the `more` flag works as expected
-#[cfg(feature = "std")]
+#[cfg(feature = "kat")]
 #[test]
 fn test_streaming_correctness() {
     // Compute a few things without breaking up their inputs

@@ -6,7 +6,7 @@ use rand::RngCore;
 // see the example at https://strobe.sourceforge.io/examples/aead/
 
 fn main() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Sender and receiver
     let mut tx = Strobe::new(b"correctnesstest", SecParam::B256);
