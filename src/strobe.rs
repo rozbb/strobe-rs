@@ -90,20 +90,16 @@ impl core::fmt::Display for AuthError {
 /// ```rust
 /// # extern crate strobe_rs;
 /// # use strobe_rs::{SecParam, Strobe};
-/// # fn main() {
 /// # let mut s = Strobe::new(b"example-of-more", SecParam::B128);
 /// s.ad(b"hello world", false);
-/// # }
 /// ```
 /// is equivalent to
 /// ```rust
 /// # extern crate strobe_rs;
 /// # use strobe_rs::{SecParam, Strobe};
-/// # fn main() {
 /// # let mut s = Strobe::new(b"example-of-more", SecParam::B128);
 /// s.ad(b"hello ", false);
 /// s.ad(b"world", true);
-/// # }
 /// ```
 ///
 /// **NOTE:** If you try to set the `more` flag for an operation that is not preceded by the same
