@@ -27,7 +27,7 @@ jobs:
           - target: x86_64-unknown-linux-gnu
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@1.91.1
+      - uses: dtolnay/rust-toolchain@stable
       - run: cargo --version
       - run: cargo test --all-features
 
@@ -35,14 +35,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@1.91.1
-      - run: cargo fmt --all -- --check
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt
+
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
 
   clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@1.91.1
+      - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - run: cargo clippy --all-features -- -D warnings
@@ -53,9 +62,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.91.1"
           targets: thumbv7em-none-eabi
       - uses: taiki-e/install-action@cargo-hack
       # No default features build
@@ -70,7 +78,7 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.91.1
+      - uses: dtolnay/rust-toolchain@nightly
       - run: cargo +nightly install cargo-msrv --no-default-features
       - run: cargo +nightly msrv --version
       - run: cargo +nightly msrv verify --all-features
