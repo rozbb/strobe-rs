@@ -82,3 +82,13 @@ jobs:
       - run: cargo +nightly install cargo-msrv --no-default-features
       - run: cargo +nightly msrv --version
       - run: cargo +nightly msrv verify --all-features
+
+  docsrs:
+    name: Check docs-rs build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo doc --all-features --no-deps
+        env:
+          RUSTDOCFLAGS: "--cfg docsrs -D warnings"
