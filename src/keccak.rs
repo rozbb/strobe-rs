@@ -1,4 +1,5 @@
 use byteorder::{ByteOrder, LittleEndian};
+use keccak::Keccak;
 use zeroize::Zeroize;
 
 /// keccak block size in 64-bit words. This is the N parameter in the STROBE spec
@@ -30,7 +31,7 @@ pub(crate) struct AlignedKeccakState(
 pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
     let mut keccak_block = [0u64; KECCAK_BLOCK_SIZE];
     LittleEndian::read_u64_into(&st.0, &mut keccak_block);
-    keccak::f1600(&mut keccak_block);
+    Keccak::new().with_f1600(|f| f(&mut keccak_block));
     LittleEndian::write_u64_into(&keccak_block, &mut st.0);
 }
 
