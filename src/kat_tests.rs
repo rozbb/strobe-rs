@@ -3,7 +3,7 @@ use crate::strobe::{SecParam, Strobe};
 use std::{boxed::Box, fs::File, path::Path, string::String, vec::Vec};
 
 use hex;
-use serde::{de::Error as SError, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de::Error as SError};
 use serde_json;
 
 // This is the top-level structure of the JSON we find in the test vectors

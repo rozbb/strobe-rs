@@ -1,4 +1,4 @@
-use crate::keccak::{keccakf_u8, AlignedKeccakState, KECCAK_BLOCK_BITLEN_STR, KECCAK_BLOCK_SIZE};
+use crate::keccak::{AlignedKeccakState, KECCAK_BLOCK_BITLEN_STR, KECCAK_BLOCK_SIZE, keccakf_u8};
 
 use bitflags::bitflags;
 use subtle::{self, ConstantTimeEq};
@@ -50,7 +50,7 @@ impl<'de> Deserialize<'de> for OpFlags {
 
 impl Zeroize for OpFlags {
     fn zeroize(&mut self) {
-        self.0 .0.zeroize();
+        self.0.0.zeroize();
     }
 }
 
