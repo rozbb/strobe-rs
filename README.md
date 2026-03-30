@@ -67,11 +67,15 @@ Default features flags: _none_
 
 Feature flag list:
 
-* `asm` — Enables optimized assembly for the Keccak permutation, if available. Assembly currently only exists for ARMv8.
 * `serialize_secret_state` — Implements `serde`'s `Serialize` and `Deserialize` traits for the `Strobe` struct. **SECURITY NOTE**: Serializing Strobe state outputs security sensitive data that MUST be kept private. Treat the data as you would a private encryption/decryption key.
 * `kat` — Required for running known-answer tests. Use only when testing.
 
 For info on how to omit or include feature flags, see the [cargo docs on features](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features).
+
+Configuration Flags
+-------------------
+
+The Keccak dependency has several performant backends to choose from. When none is specified, it will autodetect the CPU features and pick the appropriate backend. See [`keccak` configuration flags](https://github.com/RustCrypto/sponges/tree/master/keccak#configuration-flags) for more info.
 
 MSRV
 ----
