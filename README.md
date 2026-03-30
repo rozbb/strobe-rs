@@ -76,7 +76,7 @@ For info on how to omit or include feature flags, see the [cargo docs on feature
 MSRV
 ----
 
-The current minimum supported Rust version (MSRV) is 1.81.0 (2024-09-04).
+The current minimum supported Rust version (MSRV) is 1.85.0 (2025-02-20).
 
 Tests
 -----

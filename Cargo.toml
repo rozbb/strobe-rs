@@ -5,12 +5,12 @@ documentation = "https://docs.rs/strobe-rs"
 description = "An implementation of the Strobe protocol framework in pure Rust"
 readme = "README.md"
 version = "0.12.0"
-edition = "2021"
+edition = "2024"
 authors = ["Michael Rosenberg <michael@mrosenberg.pub>"]
 license = "MIT/Apache-2.0"
 keywords = ["crypto", "strobe", "protocol", "framework", "no_std"]
 categories = ["cryptography", "no-std"]
-rust-version = "1.81"
+rust-version = "1.85"
 
 [features]
 default = []
