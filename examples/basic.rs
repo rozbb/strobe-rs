@@ -1,6 +1,6 @@
 use strobe_rs::{SecParam, Strobe};
 
-use rand::RngCore;
+use rand::Rng;
 
 // NOTE: This is just a simple authenticated encryption scheme. For a robust AEAD construction,
 // see the example at https://strobe.sourceforge.io/examples/aead/
