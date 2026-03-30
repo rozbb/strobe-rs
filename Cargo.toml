@@ -32,7 +32,7 @@ zeroize = { version = "1.8", features = ["derive"] }
 [dev-dependencies]
 criterion = { version = "0.7", features = ["html_reports"] }
 hex = "0.4"
-rand = "0.9.2"
+rand = "0.10"
 serde_json = "1"
 
 # Criteron benches
