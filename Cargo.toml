@@ -16,11 +16,11 @@ rust-version = "1.81"
 default = []
 kat = []
 asm = ["keccak/asm"]
-serialize_secret_state = ["serde", "serde-big-array"]
+serialize_secret_state = ["serde", "serde-big-array", "bitflags-serde-legacy"]
 
 [dependencies]
 bitflags = "2.10"
-bitflags-serde-legacy = "0.1.1"
+bitflags-serde-legacy = { version = "0.1.1", optional = true }
 byteorder = { version = "1.5", default-features = false }
 keccak = "0.1.5"
 serde = { version = "1.0.210", optional = true, default-features = false, features = [
