@@ -336,7 +336,7 @@ impl Strobe {
     /// the case when the current operation is PRF.
     fn squeeze(&mut self, data: &mut [u8]) {
         self.duplex_mut(data, |s, d| {
-            *d ^= *s;
+            *d = *s;
             *s = 0;
         });
     }
