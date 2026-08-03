@@ -1,6 +1,6 @@
 use strobe_rs::{SecParam, Strobe};
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 
 // Literally all these functions (besides ratchet) should have the same runtime. But a benchmark
 // can't hurt, I suppose

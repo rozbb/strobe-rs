@@ -33,6 +33,7 @@ pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
     LittleEndian::read_u64_into(&st.0, &mut keccak_block);
     Keccak::new().with_f1600(|f| f(&mut keccak_block));
     LittleEndian::write_u64_into(&keccak_block, &mut st.0);
+    keccak_block.zeroize();
 }
 
 /*
