@@ -341,24 +341,18 @@ impl Strobe {
         });
     }
 
-    /// Overwrites the state with a specified number of zeros. This is a special case of
-    /// `Strobe::exchange`. More specifically, it's a special case of `Strobe::overwrite` and
-    /// `Strobe::squeeze`. It's like `squeeze` in that we assume we've been given all zeros as
-    /// input, and like `overwrite` in that we do not mutate (or take) any input.
+    /// Overwrites the state with a specified number of zeros
     fn zero_state(&mut self, mut bytes_to_zero: usize) {
         static ZEROS: [u8; 8 * KECCAK_BLOCK_SIZE] = [0u8; 8 * KECCAK_BLOCK_SIZE];
 
-        // Do the zero-writing in chunks
+        // Repeatedly `overwrite` a chunk of zeros into the state until we've written the desired
+        // number of zeros
         while bytes_to_zero > 0 {
-            let slice_len = core::cmp::min(self.rate - self.pos, bytes_to_zero);
-            self.st.0[self.pos..(self.pos + slice_len)].copy_from_slice(&ZEROS[..slice_len]);
+            let chunk_size = core::cmp::min(bytes_to_zero, 8 * KECCAK_BLOCK_SIZE);
+            let chunk = &ZEROS[..chunk_size];
+            self.overwrite(chunk);
 
-            self.pos += slice_len;
-            bytes_to_zero -= slice_len;
-
-            if self.pos == self.rate {
-                self.run_f();
-            }
+            bytes_to_zero -= chunk_size;
         }
     }
 
