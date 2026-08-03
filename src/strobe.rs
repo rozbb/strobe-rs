@@ -243,245 +243,102 @@ impl Strobe {
         self.pos_begin = 0;
     }
 
-    /// XORs the given data into the state. This is a special case of the `duplex` code in the
-    /// STROBE paper.
-    fn absorb(&mut self, data: &[u8]) {
+    /// Runs the duplex loop over `data`, applying `f` to each `(state_byte, data_byte)` pair and
+    /// running the permutation each time the rate boundary is reached. Data is processed in
+    /// contiguous chunks of up to `rate - pos` bytes, so the inner loop autovectorizes. This is
+    /// the shared driver for the mutating specializations of the `duplex` code in the STROBE
+    /// paper.
+    fn duplex_mut(&mut self, data: &mut [u8], mut f: impl FnMut(&mut u8, &mut u8)) {
         let mut data_idx = 0;
-        loop {
+        while data_idx < data.len() {
+            // Pick out two equal-sized slices from state and chunk. We will zip them and run `f`
             let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
-            let remaining_state = &mut self.st.0[self.pos..self.rate];
+            let state = &mut self.st.0[self.pos..self.pos + num_to_xor];
+            let chunk = &mut data[data_idx..data_idx + num_to_xor];
 
-            for (s, b) in remaining_state.iter_mut().zip(data.iter().skip(data_idx)) {
-                *s ^= b;
+            for (s, d) in state.iter_mut().zip(chunk.iter_mut()) {
+                f(s, d);
             }
 
-            // Move the data cursor and self cursor
-            data_idx += num_to_xor;
+            // Update the data cursor and self cursor
             self.pos += num_to_xor;
+            data_idx += num_to_xor;
 
             // If we XORed enough to exhaust the rate, then permute
             if self.pos == self.rate {
                 self.run_f();
             }
-
-            if data_idx == data.len() {
-                break;
-            }
         }
-        /*
-        for b in data {
-            self.st.0[self.pos] ^= *b;
+    }
 
-            self.pos += 1;
+    /// Identical as [`Strobe::duplex_mut`], but where `data` is read-only
+    fn duplex_const(&mut self, data: &[u8], mut f: impl FnMut(&mut u8, u8)) {
+        let mut data_idx = 0;
+        while data_idx < data.len() {
+            // Pick out two equal-sized slices from state and chunk. We will zip them and run `f`
+            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
+            let state = &mut self.st.0[self.pos..self.pos + num_to_xor];
+            let chunk = &data[data_idx..data_idx + num_to_xor];
+
+            for (s, &d) in state.iter_mut().zip(chunk.iter()) {
+                f(s, d);
+            }
+
+            // Update the data cursor and self cursor
+            self.pos += num_to_xor;
+            data_idx += num_to_xor;
+
+            // If we XORed enough to exhaust the rate, then permute
             if self.pos == self.rate {
                 self.run_f();
             }
         }
-        */
+    }
+
+    /// XORs the given data into the state. This is a special case of the `duplex` code in the
+    /// STROBE paper.
+    fn absorb(&mut self, data: &[u8]) {
+        self.duplex_const(data, |s, d| *s ^= d);
     }
 
     /// XORs the given data into the state, then sets the data equal the state.  This is a special
     /// case of the `duplex` code in the STROBE paper.
     fn absorb_and_set(&mut self, data: &mut [u8]) {
-        let mut data_idx = 0;
-        loop {
-            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
-            let remaining_state = &mut self.st.0[self.pos..self.rate];
-
-            for (s, b) in remaining_state
-                .iter_mut()
-                .zip(data.iter_mut().skip(data_idx))
-            {
-                *s ^= *b;
-                *b = *s;
-            }
-
-            // Move the data cursor and self cursor
-            data_idx += num_to_xor;
-            self.pos += num_to_xor;
-
-            // If we XORed enough to exhaust the rate, then permute
-            if self.pos == self.rate {
-                self.run_f();
-            }
-
-            if data_idx == data.len() {
-                break;
-            }
-        }
-        /*
-        for b in data {
-            let state_byte = self.st.0.get_mut(self.pos).unwrap();
-            *state_byte ^= *b;
-            *b = *state_byte;
-
-            self.pos += 1;
-            if self.pos == self.rate {
-                self.run_f();
-            }
-        }
-        */
+        self.duplex_mut(data, |s, d| {
+            *s ^= *d;
+            *d = *s;
+        });
     }
 
     /// Copies the internal state into the given buffer. This is a special case of `absorb_and_set`
     /// where `data` is all zeros.
     fn copy_state(&mut self, data: &mut [u8]) {
-        let mut data_idx = 0;
-        loop {
-            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
-            let remaining_state = &mut self.st.0[self.pos..self.rate];
-
-            for (s, b) in remaining_state.iter().zip(data.iter_mut().skip(data_idx)) {
-                *b = *s;
-            }
-
-            // Move the data cursor and self cursor
-            data_idx += num_to_xor;
-            self.pos += num_to_xor;
-
-            // If we XORed enough to exhaust the rate, then permute
-            if self.pos == self.rate {
-                self.run_f();
-            }
-
-            if data_idx == data.len() {
-                break;
-            }
-        }
-        /*
-        for b in data {
-            *b = self.st.0[self.pos];
-
-            self.pos += 1;
-            if self.pos == self.rate {
-                self.run_f();
-            }
-        }
-        */
+        self.duplex_mut(data, |s, d| *d = *s);
     }
 
     /// Overwrites the state with the given data while XORing the given data with the old state.
     /// This is a special case of the `duplex` code in the STROBE paper.
     fn exchange(&mut self, data: &mut [u8]) {
-        let mut data_idx = 0;
-        loop {
-            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
-            let remaining_state = &mut self.st.0[self.pos..self.rate];
-
-            for (s, b) in remaining_state
-                .iter_mut()
-                .zip(data.iter_mut().skip(data_idx))
-            {
-                *b ^= *s;
-                *s ^= *b;
-            }
-
-            // Move the data cursor and self cursor
-            data_idx += num_to_xor;
-            self.pos += num_to_xor;
-
-            // If we XORed enough to exhaust the rate, then permute
-            if self.pos == self.rate {
-                self.run_f();
-            }
-
-            if data_idx == data.len() {
-                break;
-            }
-        }
-        /*
-        for b in data {
-            let state_byte = self.st.0.get_mut(self.pos).unwrap();
-            *b ^= *state_byte;
-            *state_byte ^= *b;
-
-            self.pos += 1;
-            if self.pos == self.rate {
-                self.run_f();
-            }
-        }
-        */
+        self.duplex_mut(data, |s, d| {
+            *d ^= *s;
+            *s ^= *d;
+        });
     }
 
     /// Overwrites the state with the given data. This is a special case of `Strobe::exchange`,
     /// where we do not want to mutate the input data.
     fn overwrite(&mut self, data: &[u8]) {
-        let mut data_idx = 0;
-        loop {
-            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
-            let remaining_state = &mut self.st.0[self.pos..self.rate];
-
-            for (s, b) in remaining_state.iter_mut().zip(data.iter().skip(data_idx)) {
-                *s = *b;
-            }
-
-            // Move the data cursor and self cursor
-            data_idx += num_to_xor;
-            self.pos += num_to_xor;
-
-            // If we XORed enough to exhaust the rate, then permute
-            if self.pos == self.rate {
-                self.run_f();
-            }
-
-            if data_idx == data.len() {
-                break;
-            }
-        }
-        /*
-        for b in data {
-            self.st.0[self.pos] = *b;
-
-            self.pos += 1;
-            if self.pos == self.rate {
-                self.run_f();
-            }
-        }
-        */
+        self.duplex_const(data, |s, d| *s = d);
     }
 
     /// Copies the state into the given buffer and sets the state to 0. This is a special case of
     /// `Strobe::exchange`, where `data` is assumed to be the all-zeros string. This is precisely
     /// the case when the current operation is PRF.
     fn squeeze(&mut self, data: &mut [u8]) {
-        let mut data_idx = 0;
-        loop {
-            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
-            let remaining_state = &mut self.st.0[self.pos..self.rate];
-
-            for (s, b) in remaining_state
-                .iter_mut()
-                .zip(data.iter_mut().skip(data_idx))
-            {
-                *b ^= *s;
-                *s = 0;
-            }
-
-            // Move the data cursor and self cursor
-            data_idx += num_to_xor;
-            self.pos += num_to_xor;
-
-            // If we XORed enough to exhaust the rate, then permute
-            if self.pos == self.rate {
-                self.run_f();
-            }
-
-            if data_idx == data.len() {
-                break;
-            }
-        }
-        /*
-        for b in data {
-            let state_byte = self.st.0.get_mut(self.pos).unwrap();
-            *b = *state_byte;
-            *state_byte = 0;
-
-            self.pos += 1;
-            if self.pos == self.rate {
-                self.run_f();
-            }
-        }
-        */
+        self.duplex_mut(data, |s, d| {
+            *d ^= *s;
+            *s = 0;
+        });
     }
 
     /// Overwrites the state with a specified number of zeros. This is a special case of
