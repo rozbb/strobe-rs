@@ -446,3 +446,39 @@ fn test_mac_correctness_and_soundness() {
     let bad_res = rx.recv_mac(&bad_mac.try_into().unwrap());
     assert!(bad_res.is_err());
 }
+
+// Regression test: `prf` and `send_mac` must overwrite the caller's buffer, not XOR into it.
+// A previous commit incorrectly XORed the PRF buffer into the state, and it was barely caught by
+// tests. This test explicitly checks that the prior value of the PRF buffer does not matter.
+#[test]
+fn test_output_independent_of_input_buffer() {
+    // Build up some nontrivial state to extract from
+    let mut s = Strobe::new(b"output-overwrite-regression", SecParam::B256);
+    s.key(b"secretsauce", false);
+    s.ad(b"some associated data", false);
+
+    // Clone the state twice and have it output the PRF into two buffers. One filled with zeroes
+    // and one filled with 0xAA. They should be identical after being filled.
+    {
+        let mut from_zeros = [0x00u8; 64];
+        let mut from_dirty = [0xAAu8; 64];
+        s.clone().prf(&mut from_zeros, false);
+        s.clone().prf(&mut from_dirty, false);
+        assert_eq!(
+            from_zeros, from_dirty,
+            "PRF cannot depend on the initial contents of the output buffer"
+        );
+    }
+
+    // Do the same for send_mac
+    {
+        let mut from_zeros = [0x00u8; 32];
+        let mut from_dirty = [0xAAu8; 32];
+        s.clone().send_mac(&mut from_zeros, false);
+        s.clone().send_mac(&mut from_dirty, false);
+        assert_eq!(
+            from_zeros, from_dirty,
+            "send-MAC cannot depend on the initial contents of the output buffer"
+        );
+    }
+}
