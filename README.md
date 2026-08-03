@@ -100,7 +100,7 @@ To benchmark, run
 cargo bench
 ```
 
-This will produce a summary with plots in `target/crieteron/report/index.html`. These won't be very interesting, since almost every function in STROBE has the same runtime.
+This will produce a summary with plots in `target/criterion/report/index.html`. These won't be very interesting, since almost every function in STROBE has the same runtime.
 
 License
 -------

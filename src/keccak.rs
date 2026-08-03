@@ -26,7 +26,7 @@ pub(crate) struct AlignedKeccakState(
 
 /// Performs the keccakf\[1600\] permutation on a byte buffer
 // Make a little-endian copy, do the operation, then copy the bytes back. Hopefully the compiler
-// will optimize out the copy if we' re on a little endian machine. I don't feel comfortable doing
+// will optimize out the copy if we're on a little endian machine. I don't feel comfortable doing
 // a mem transmute.
 pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
     let mut keccak_block = [0u64; KECCAK_BLOCK_SIZE];

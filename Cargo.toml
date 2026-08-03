@@ -35,7 +35,7 @@ hex = "0.4"
 rand = "0.10"
 serde_json = "1"
 
-# Criteron benches
+# Criterion benches
 [[bench]]
 name = "benches"
 harness = false
