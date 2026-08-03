@@ -20,7 +20,7 @@ s = Strobe("", security=128)
 print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
 #[test]
-fn test_init_128() {
+fn init_128() {
     let s = Strobe::new(b"", SecParam::B128);
     let initial_st = s.st.0;
     let expected_st: &[u8; 8 * KECCAK_BLOCK_SIZE] = &[
@@ -52,7 +52,7 @@ s = Strobe("", security=256)
 print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
 #[test]
-fn test_init_256() {
+fn init_256() {
     let s = Strobe::new(b"", SecParam::B256);
     let initial_st = s.st.0;
     let expected_st: &[u8; 8 * KECCAK_BLOCK_SIZE] = &[
@@ -98,7 +98,7 @@ print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
 #[cfg(feature = "kat")]
 #[test]
-fn test_seq() {
+fn seq() {
     let mut s = Strobe::new(b"seqtest", SecParam::B256);
 
     let mut buf = [0u8; 10];
@@ -165,7 +165,7 @@ print("state == [{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
 #[cfg(feature = "kat")]
 #[test]
-fn test_metadata() {
+fn metadata() {
     // We will accumulate output over 3 operations and 3 meta-operations
     let mut s = Strobe::new(b"metadatatest", SecParam::B256);
     let mut output = std::vec::Vec::new();
@@ -256,7 +256,7 @@ s.send_mac(small_n, meta_flags=C|T|M, metadata=small_n)
 print("[{}]".format(', '.join(map("0x{:02x}".format, s.st))))
 */
 #[test]
-fn test_long_inputs() {
+fn long_inputs() {
     let mut s = Strobe::new(b"bigtest", SecParam::B256);
     const BIG_N: usize = 9823;
     const SMALL_N: usize = 65;
@@ -312,7 +312,7 @@ fn test_long_inputs() {
 // Test that streaming in data using the `more` flag works as expected
 #[cfg(feature = "kat")]
 #[test]
-fn test_streaming_correctness() {
+fn streaming_correctness() {
     // Compute a few things without breaking up their inputs
     let one_shot_st: std::vec::Vec<u8> = {
         let mut s = Strobe::new(b"streamingtest", SecParam::B256);
@@ -359,7 +359,7 @@ fn test_streaming_correctness() {
 // after the same op. In this instance, the violating operation is a nonmutating one (it's AD)
 #[test]
 #[should_panic]
-fn test_streaming_soundness_nomutate() {
+fn streaming_soundness_nomutate() {
     let mut s = Strobe::new(b"mactest", SecParam::B256);
 
     // Key with valid steps
@@ -373,7 +373,7 @@ fn test_streaming_soundness_nomutate() {
 // Same as above, but whose violating operation is a mutating one (it's send_enc)
 #[test]
 #[should_panic]
-fn test_streaming_soundness_mutate() {
+fn streaming_soundness_mutate() {
     let mut s = Strobe::new(b"mactest", SecParam::B256);
 
     // Key with valid steps
@@ -388,7 +388,7 @@ fn test_streaming_soundness_mutate() {
 // Same as above but with ratchet
 #[test]
 #[should_panic]
-fn test_streaming_soundness_ratchet() {
+fn streaming_soundness_ratchet() {
     let mut s = Strobe::new(b"mactest", SecParam::B256);
 
     // Key with valid steps
@@ -401,7 +401,7 @@ fn test_streaming_soundness_ratchet() {
 
 // Test that decrypt(encrypt(msg)) == msg
 #[test]
-fn test_enc_correctness() {
+fn enc_correctness() {
     let orig_msg = b"Hello there";
     let mut tx = Strobe::new(b"enccorrectnesstest", SecParam::B256);
     let mut rx = Strobe::new(b"enccorrectnesstest", SecParam::B256);
@@ -419,7 +419,7 @@ fn test_enc_correctness() {
 
 // Test that recv_mac(send_mac()) doesn't error, and recv_mac(otherstuff) does error
 #[test]
-fn test_mac_correctness_and_soundness() {
+fn mac_correctness_and_soundness() {
     let mut tx = Strobe::new(b"mactest", SecParam::B256);
     let mut rx = Strobe::new(b"mactest", SecParam::B256);
 
@@ -451,7 +451,7 @@ fn test_mac_correctness_and_soundness() {
 // A previous commit incorrectly XORed the PRF buffer into the state, and it was barely caught by
 // tests. This test explicitly checks that the prior value of the PRF buffer does not matter.
 #[test]
-fn test_output_independent_of_input_buffer() {
+fn output_independent_of_input_buffer() {
     // Build up some nontrivial state to extract from
     let mut s = Strobe::new(b"output-overwrite-regression", SecParam::B256);
     s.key(b"secretsauce", false);
