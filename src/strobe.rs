@@ -1,4 +1,4 @@
-use crate::keccak::{AlignedKeccakState, KECCAK_BLOCK_BITLEN_STR, KECCAK_BLOCK_SIZE, keccakf_u8};
+use crate::keccak::{keccakf_u8, AlignedKeccakState, KECCAK_BLOCK_BITLEN_STR, KECCAK_BLOCK_SIZE};
 
 use bitflags::bitflags;
 use subtle::{self, ConstantTimeEq};
@@ -50,7 +50,7 @@ impl<'de> Deserialize<'de> for OpFlags {
 
 impl Zeroize for OpFlags {
     fn zeroize(&mut self) {
-        self.0.0.zeroize();
+        self.0 .0.zeroize();
     }
 }
 
@@ -108,6 +108,15 @@ impl core::fmt::Display for AuthError {
 ///
 /// Finally, `ratchet` and `meta_ratchet` take a `usize` argument instead of bytes. These functions
 /// are individually commented below.
+#[cfg_attr(
+    feature = "serialize_secret_state",
+    doc = "\n\n\
+        ⚠️Security warning⚠️ \
+        When the `serialize_secret_state` feature is enabled, `Strobe` implements \
+        `serde::Serialize`/`serde::Deserialize`. Serializing Strobe state outputs \
+        security-sensitive data that MUST be kept private. Treat the data as you would a private \
+        encryption/decryption key."
+)]
 #[derive(Clone, Zeroize, ZeroizeOnDrop)]
 #[cfg_attr(feature = "serialize_secret_state", derive(Serialize, Deserialize))]
 pub struct Strobe {
