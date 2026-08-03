@@ -1,4 +1,4 @@
-use crate::keccak::{AlignedKeccakState, KECCAK_BLOCK_BITLEN_STR, KECCAK_BLOCK_SIZE, keccakf_u8};
+use crate::keccak::{keccakf_u8, AlignedKeccakState, KECCAK_BLOCK_BITLEN_STR, KECCAK_BLOCK_SIZE};
 
 use bitflags::bitflags;
 use subtle::{self, ConstantTimeEq};
@@ -50,7 +50,7 @@ impl<'de> Deserialize<'de> for OpFlags {
 
 impl Zeroize for OpFlags {
     fn zeroize(&mut self) {
-        self.0.0.zeroize();
+        self.0 .0.zeroize();
     }
 }
 
@@ -246,6 +246,29 @@ impl Strobe {
     /// XORs the given data into the state. This is a special case of the `duplex` code in the
     /// STROBE paper.
     fn absorb(&mut self, data: &[u8]) {
+        let mut data_idx = 0;
+        loop {
+            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
+            let remaining_state = &mut self.st.0[self.pos..self.rate];
+
+            for (s, b) in remaining_state.iter_mut().zip(data.iter().skip(data_idx)) {
+                *s ^= b;
+            }
+
+            // Move the data cursor and self cursor
+            data_idx += num_to_xor;
+            self.pos += num_to_xor;
+
+            // If we XORed enough to exhaust the rate, then permute
+            if self.pos == self.rate {
+                self.run_f();
+            }
+
+            if data_idx == data.len() {
+                break;
+            }
+        }
+        /*
         for b in data {
             self.st.0[self.pos] ^= *b;
 
@@ -254,11 +277,39 @@ impl Strobe {
                 self.run_f();
             }
         }
+        */
     }
 
     /// XORs the given data into the state, then sets the data equal the state.  This is a special
     /// case of the `duplex` code in the STROBE paper.
     fn absorb_and_set(&mut self, data: &mut [u8]) {
+        let mut data_idx = 0;
+        loop {
+            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
+            let remaining_state = &mut self.st.0[self.pos..self.rate];
+
+            for (s, b) in remaining_state
+                .iter_mut()
+                .zip(data.iter_mut().skip(data_idx))
+            {
+                *s ^= *b;
+                *b = *s;
+            }
+
+            // Move the data cursor and self cursor
+            data_idx += num_to_xor;
+            self.pos += num_to_xor;
+
+            // If we XORed enough to exhaust the rate, then permute
+            if self.pos == self.rate {
+                self.run_f();
+            }
+
+            if data_idx == data.len() {
+                break;
+            }
+        }
+        /*
         for b in data {
             let state_byte = self.st.0.get_mut(self.pos).unwrap();
             *state_byte ^= *b;
@@ -269,11 +320,35 @@ impl Strobe {
                 self.run_f();
             }
         }
+        */
     }
 
     /// Copies the internal state into the given buffer. This is a special case of `absorb_and_set`
     /// where `data` is all zeros.
     fn copy_state(&mut self, data: &mut [u8]) {
+        let mut data_idx = 0;
+        loop {
+            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
+            let remaining_state = &mut self.st.0[self.pos..self.rate];
+
+            for (s, b) in remaining_state.iter().zip(data.iter_mut().skip(data_idx)) {
+                *b = *s;
+            }
+
+            // Move the data cursor and self cursor
+            data_idx += num_to_xor;
+            self.pos += num_to_xor;
+
+            // If we XORed enough to exhaust the rate, then permute
+            if self.pos == self.rate {
+                self.run_f();
+            }
+
+            if data_idx == data.len() {
+                break;
+            }
+        }
+        /*
         for b in data {
             *b = self.st.0[self.pos];
 
@@ -282,11 +357,39 @@ impl Strobe {
                 self.run_f();
             }
         }
+        */
     }
 
     /// Overwrites the state with the given data while XORing the given data with the old state.
     /// This is a special case of the `duplex` code in the STROBE paper.
     fn exchange(&mut self, data: &mut [u8]) {
+        let mut data_idx = 0;
+        loop {
+            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
+            let remaining_state = &mut self.st.0[self.pos..self.rate];
+
+            for (s, b) in remaining_state
+                .iter_mut()
+                .zip(data.iter_mut().skip(data_idx))
+            {
+                *b ^= *s;
+                *s ^= *b;
+            }
+
+            // Move the data cursor and self cursor
+            data_idx += num_to_xor;
+            self.pos += num_to_xor;
+
+            // If we XORed enough to exhaust the rate, then permute
+            if self.pos == self.rate {
+                self.run_f();
+            }
+
+            if data_idx == data.len() {
+                break;
+            }
+        }
+        /*
         for b in data {
             let state_byte = self.st.0.get_mut(self.pos).unwrap();
             *b ^= *state_byte;
@@ -297,11 +400,35 @@ impl Strobe {
                 self.run_f();
             }
         }
+        */
     }
 
     /// Overwrites the state with the given data. This is a special case of `Strobe::exchange`,
     /// where we do not want to mutate the input data.
     fn overwrite(&mut self, data: &[u8]) {
+        let mut data_idx = 0;
+        loop {
+            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
+            let remaining_state = &mut self.st.0[self.pos..self.rate];
+
+            for (s, b) in remaining_state.iter_mut().zip(data.iter().skip(data_idx)) {
+                *s = *b;
+            }
+
+            // Move the data cursor and self cursor
+            data_idx += num_to_xor;
+            self.pos += num_to_xor;
+
+            // If we XORed enough to exhaust the rate, then permute
+            if self.pos == self.rate {
+                self.run_f();
+            }
+
+            if data_idx == data.len() {
+                break;
+            }
+        }
+        /*
         for b in data {
             self.st.0[self.pos] = *b;
 
@@ -310,12 +437,40 @@ impl Strobe {
                 self.run_f();
             }
         }
+        */
     }
 
     /// Copies the state into the given buffer and sets the state to 0. This is a special case of
     /// `Strobe::exchange`, where `data` is assumed to be the all-zeros string. This is precisely
     /// the case when the current operation is PRF.
     fn squeeze(&mut self, data: &mut [u8]) {
+        let mut data_idx = 0;
+        loop {
+            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
+            let remaining_state = &mut self.st.0[self.pos..self.rate];
+
+            for (s, b) in remaining_state
+                .iter_mut()
+                .zip(data.iter_mut().skip(data_idx))
+            {
+                *b ^= *s;
+                *s = 0;
+            }
+
+            // Move the data cursor and self cursor
+            data_idx += num_to_xor;
+            self.pos += num_to_xor;
+
+            // If we XORed enough to exhaust the rate, then permute
+            if self.pos == self.rate {
+                self.run_f();
+            }
+
+            if data_idx == data.len() {
+                break;
+            }
+        }
+        /*
         for b in data {
             let state_byte = self.st.0.get_mut(self.pos).unwrap();
             *b = *state_byte;
@@ -326,6 +481,7 @@ impl Strobe {
                 self.run_f();
             }
         }
+        */
     }
 
     /// Overwrites the state with a specified number of zeros. This is a special case of
