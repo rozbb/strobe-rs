@@ -261,17 +261,17 @@ impl Strobe {
         let mut data_idx = 0;
         while data_idx < data.len() {
             // Pick out two equal-sized slices from state and chunk. We will zip them and run `f`
-            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
-            let state = &mut self.st.0[self.pos..self.pos + num_to_xor];
-            let chunk = &mut data[data_idx..data_idx + num_to_xor];
+            let chunk_size = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
+            let state_chunk = &mut self.st.0[self.pos..self.pos + chunk_size];
+            let data_chunk = &mut data[data_idx..data_idx + chunk_size];
 
-            for (s, d) in state.iter_mut().zip(chunk.iter_mut()) {
+            for (s, d) in state_chunk.iter_mut().zip(data_chunk.iter_mut()) {
                 f(s, d);
             }
 
             // Update the data cursor and self cursor
-            self.pos += num_to_xor;
-            data_idx += num_to_xor;
+            self.pos += chunk_size;
+            data_idx += chunk_size;
 
             // If we XORed enough to exhaust the rate, then permute
             if self.pos == self.rate {
@@ -285,17 +285,17 @@ impl Strobe {
         let mut data_idx = 0;
         while data_idx < data.len() {
             // Pick out two equal-sized slices from state and chunk. We will zip them and run `f`
-            let num_to_xor = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
-            let state = &mut self.st.0[self.pos..self.pos + num_to_xor];
-            let chunk = &data[data_idx..data_idx + num_to_xor];
+            let chunk_size = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
+            let state_chunk = &mut self.st.0[self.pos..self.pos + chunk_size];
+            let data_chunk = &data[data_idx..data_idx + chunk_size];
 
-            for (s, &d) in state.iter_mut().zip(chunk.iter()) {
+            for (s, &d) in state_chunk.iter_mut().zip(data_chunk.iter()) {
                 f(s, d);
             }
 
             // Update the data cursor and self cursor
-            self.pos += num_to_xor;
-            data_idx += num_to_xor;
+            self.pos += chunk_size;
+            data_idx += chunk_size;
 
             // If we XORed enough to exhaust the rate, then permute
             if self.pos == self.rate {
