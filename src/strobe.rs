@@ -253,10 +253,9 @@ impl Strobe {
     }
 
     /// Runs the duplex loop over `data`, applying `f` to each `(state_byte, data_byte)` pair and
-    /// running the permutation each time the rate boundary is reached. Data is processed in
-    /// contiguous chunks of up to `rate - pos` bytes, so the inner loop autovectorizes. This is
-    /// the shared driver for the mutating specializations of the `duplex` code in the STROBE
-    /// paper.
+    /// running the permutation each time the rate boundary is reached. For simplicity's sake,
+    /// rather than implementing the entire `duplex` function from the paper, we implement this for
+    /// generic `f` and let the caller pick `f`.
     fn duplex_mut(&mut self, data: &mut [u8], mut f: impl FnMut(&mut u8, &mut u8)) {
         let mut data_idx = 0;
         while data_idx < data.len() {
