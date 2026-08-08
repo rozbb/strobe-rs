@@ -18,7 +18,6 @@ use serde_big_array::BigArray;
 /// safely convertible to a pointer to [u64; 25] (since u64 words must be 8-byte aligned)
 #[derive(Clone, Zeroize)]
 #[cfg_attr(feature = "serialize_secret_state", derive(Serialize, Deserialize))]
-#[repr(align(8))]
 pub(crate) struct AlignedKeccakState(
     #[cfg_attr(feature = "serialize_secret_state", serde(with = "BigArray"))]
     pub(crate)  [u8; 8 * KECCAK_BLOCK_SIZE],
