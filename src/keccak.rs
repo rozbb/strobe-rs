@@ -14,11 +14,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serialize_secret_state")]
 use serde_big_array::BigArray;
 
-/// This is a wrapper around 200-byte buffer that's always 8-byte aligned to make pointers to it
-/// safely convertible to a pointer to [u64; 25] (since u64 words must be 8-byte aligned)
+/// This is a wrapper around 200-byte buffer
 #[derive(Clone, Zeroize)]
 #[cfg_attr(feature = "serialize_secret_state", derive(Serialize, Deserialize))]
-#[repr(align(8))]
 pub(crate) struct AlignedKeccakState(
     #[cfg_attr(feature = "serialize_secret_state", serde(with = "BigArray"))]
     pub(crate)  [u8; 8 * KECCAK_BLOCK_SIZE],
@@ -26,13 +24,14 @@ pub(crate) struct AlignedKeccakState(
 
 /// Performs the keccakf\[1600\] permutation on a byte buffer
 // Make a little-endian copy, do the operation, then copy the bytes back. Hopefully the compiler
-// will optimize out the copy if we' re on a little endian machine. I don't feel comfortable doing
+// will optimize out the copy if we're on a little endian machine. I don't feel comfortable doing
 // a mem transmute.
 pub(crate) fn keccakf_u8(st: &mut AlignedKeccakState) {
     let mut keccak_block = [0u64; KECCAK_BLOCK_SIZE];
     LittleEndian::read_u64_into(&st.0, &mut keccak_block);
     Keccak::new().with_f1600(|f| f(&mut keccak_block));
     LittleEndian::write_u64_into(&keccak_block, &mut st.0);
+    keccak_block.zeroize();
 }
 
 /*

@@ -108,6 +108,15 @@ impl core::fmt::Display for AuthError {
 ///
 /// Finally, `ratchet` and `meta_ratchet` take a `usize` argument instead of bytes. These functions
 /// are individually commented below.
+#[cfg_attr(
+    feature = "serialize_secret_state",
+    doc = "\n\n\
+        ⚠️Security warning⚠️ \
+        When the `serialize_secret_state` feature is enabled, `Strobe` implements \
+        `serde::Serialize`/`serde::Deserialize`. Serializing Strobe state outputs \
+        security-sensitive data that MUST be kept private. Treat the data as you would a private \
+        encryption/decryption key."
+)]
 #[derive(Clone, Zeroize, ZeroizeOnDrop)]
 #[cfg_attr(feature = "serialize_secret_state", derive(Serialize, Deserialize))]
 pub struct Strobe {
@@ -243,109 +252,115 @@ impl Strobe {
         self.pos_begin = 0;
     }
 
-    /// XORs the given data into the state. This is a special case of the `duplex` code in the
-    /// STROBE paper.
-    fn absorb(&mut self, data: &[u8]) {
-        for b in data {
-            self.st.0[self.pos] ^= *b;
+    /// Runs the duplex loop over `data`, applying `f` to each `(state_byte, data_byte)` pair and
+    /// running the permutation each time the rate boundary is reached. For simplicity's sake,
+    /// rather than implementing the entire `duplex` function from the paper, we implement this for
+    /// generic `f` and let the caller pick `f`.
+    fn duplex_mut(&mut self, data: &mut [u8], mut f: impl FnMut(&mut u8, &mut u8)) {
+        let mut data_idx = 0;
+        while data_idx < data.len() {
+            // Pick out two equal-sized slices from state and chunk. We will zip them and run `f`
+            let chunk_size = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
+            let state_chunk = &mut self.st.0[self.pos..self.pos + chunk_size];
+            let data_chunk = &mut data[data_idx..data_idx + chunk_size];
 
-            self.pos += 1;
+            for (s, d) in state_chunk.iter_mut().zip(data_chunk.iter_mut()) {
+                f(s, d);
+            }
+
+            // Update the data cursor and self cursor
+            self.pos += chunk_size;
+            data_idx += chunk_size;
+
+            // If we XORed enough to exhaust the rate, then permute
             if self.pos == self.rate {
                 self.run_f();
             }
         }
+    }
+
+    /// Identical to [`Strobe::duplex_mut`], but where `data` is read-only
+    fn duplex_const(&mut self, data: &[u8], mut f: impl FnMut(&mut u8, u8)) {
+        let mut data_idx = 0;
+        while data_idx < data.len() {
+            // Pick out two equal-sized slices from state and chunk. We will zip them and run `f`
+            let chunk_size = core::cmp::min(self.rate - self.pos, data.len() - data_idx);
+            let state_chunk = &mut self.st.0[self.pos..self.pos + chunk_size];
+            let data_chunk = &data[data_idx..data_idx + chunk_size];
+
+            for (s, &d) in state_chunk.iter_mut().zip(data_chunk.iter()) {
+                f(s, d);
+            }
+
+            // Update the data cursor and self cursor
+            self.pos += chunk_size;
+            data_idx += chunk_size;
+
+            // If we XORed enough to exhaust the rate, then permute
+            if self.pos == self.rate {
+                self.run_f();
+            }
+        }
+    }
+
+    /// XORs the given data into the state. This is a special case of the `duplex` code in the
+    /// STROBE paper.
+    fn absorb(&mut self, data: &[u8]) {
+        self.duplex_const(data, |s, d| *s ^= d);
     }
 
     /// XORs the given data into the state, then sets the data equal the state.  This is a special
     /// case of the `duplex` code in the STROBE paper.
     fn absorb_and_set(&mut self, data: &mut [u8]) {
-        for b in data {
-            let state_byte = self.st.0.get_mut(self.pos).unwrap();
-            *state_byte ^= *b;
-            *b = *state_byte;
-
-            self.pos += 1;
-            if self.pos == self.rate {
-                self.run_f();
-            }
-        }
+        self.duplex_mut(data, |s, d| {
+            *s ^= *d;
+            *d = *s;
+        });
     }
 
     /// Copies the internal state into the given buffer. This is a special case of `absorb_and_set`
     /// where `data` is all zeros.
     fn copy_state(&mut self, data: &mut [u8]) {
-        for b in data {
-            *b = self.st.0[self.pos];
-
-            self.pos += 1;
-            if self.pos == self.rate {
-                self.run_f();
-            }
-        }
+        self.duplex_mut(data, |s, d| *d = *s);
     }
 
     /// Overwrites the state with the given data while XORing the given data with the old state.
     /// This is a special case of the `duplex` code in the STROBE paper.
     fn exchange(&mut self, data: &mut [u8]) {
-        for b in data {
-            let state_byte = self.st.0.get_mut(self.pos).unwrap();
-            *b ^= *state_byte;
-            *state_byte ^= *b;
-
-            self.pos += 1;
-            if self.pos == self.rate {
-                self.run_f();
-            }
-        }
+        self.duplex_mut(data, |s, d| {
+            *d ^= *s;
+            *s ^= *d;
+        });
     }
 
     /// Overwrites the state with the given data. This is a special case of `Strobe::exchange`,
     /// where we do not want to mutate the input data.
     fn overwrite(&mut self, data: &[u8]) {
-        for b in data {
-            self.st.0[self.pos] = *b;
-
-            self.pos += 1;
-            if self.pos == self.rate {
-                self.run_f();
-            }
-        }
+        self.duplex_const(data, |s, d| *s = d);
     }
 
     /// Copies the state into the given buffer and sets the state to 0. This is a special case of
     /// `Strobe::exchange`, where `data` is assumed to be the all-zeros string. This is precisely
     /// the case when the current operation is PRF.
     fn squeeze(&mut self, data: &mut [u8]) {
-        for b in data {
-            let state_byte = self.st.0.get_mut(self.pos).unwrap();
-            *b = *state_byte;
-            *state_byte = 0;
-
-            self.pos += 1;
-            if self.pos == self.rate {
-                self.run_f();
-            }
-        }
+        self.duplex_mut(data, |s, d| {
+            *d = *s;
+            *s = 0;
+        });
     }
 
-    /// Overwrites the state with a specified number of zeros. This is a special case of
-    /// `Strobe::exchange`. More specifically, it's a special case of `Strobe::overwrite` and
-    /// `Strobe::squeeze`. It's like `squeeze` in that we assume we've been given all zeros as
-    /// input, and like `overwrite` in that we do not mutate (or take) any input.
+    /// Overwrites the state with a specified number of zeros
     fn zero_state(&mut self, mut bytes_to_zero: usize) {
         static ZEROS: [u8; 8 * KECCAK_BLOCK_SIZE] = [0u8; 8 * KECCAK_BLOCK_SIZE];
 
-        // Do the zero-writing in chunks
+        // Repeatedly `overwrite` a chunk of zeros into the state until we've written the desired
+        // number of zeros
         while bytes_to_zero > 0 {
-            let slice_len = core::cmp::min(self.rate - self.pos, bytes_to_zero);
-            self.st.0[self.pos..(self.pos + slice_len)].copy_from_slice(&ZEROS[..slice_len]);
+            let chunk_size = core::cmp::min(bytes_to_zero, 8 * KECCAK_BLOCK_SIZE);
+            let chunk = &ZEROS[..chunk_size];
+            self.overwrite(chunk);
 
-            self.pos += slice_len;
-            bytes_to_zero -= slice_len;
-
-            if self.pos == self.rate {
-                self.run_f();
-            }
+            bytes_to_zero -= chunk_size;
         }
     }
 

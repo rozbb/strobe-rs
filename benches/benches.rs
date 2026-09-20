@@ -10,6 +10,10 @@ fn bench_nonmeta(c: &mut Criterion) {
 
     let mut s = Strobe::new(b"simplebench", SecParam::B256);
     let mut v = [0u8; 256];
+    let mut big_v = [0u8; 8192];
+    g.bench_function("8KiB send_enc", |b| {
+        b.iter(|| s.send_enc(&mut big_v, false))
+    });
     g.bench_function("send_enc", |b| b.iter(|| s.send_enc(&mut v, false)));
     g.bench_function("recv_enc", |b| b.iter(|| s.recv_enc(&mut v, false)));
     g.bench_function("send_clr", |b| b.iter(|| s.send_clr(&v, false)));

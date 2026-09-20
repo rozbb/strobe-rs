@@ -67,7 +67,7 @@ Default features flags: _none_
 
 Feature flag list:
 
-* `serialize_secret_state` — Implements `serde`'s `Serialize` and `Deserialize` traits for the `Strobe` struct. **SECURITY NOTE**: Serializing Strobe state outputs security sensitive data that MUST be kept private. Treat the data as you would a private encryption/decryption key.
+* `serialize_secret_state` — Implements `serde`'s `Serialize` and `Deserialize` traits for the `Strobe` struct. ⚠️Security warning⚠️: Do NOT use this if you don't know what you're doing. Serializing Strobe state outputs security-sensitive data that MUST be kept private. Treat the data as you would a private encryption/decryption key.
 * `kat` — Required for running known-answer tests. Use only when testing.
 
 For info on how to omit or include feature flags, see the [cargo docs on features](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choosing-features).
@@ -100,7 +100,7 @@ To benchmark, run
 cargo bench
 ```
 
-This will produce a summary with plots in `target/crieteron/report/index.html`. These won't be very interesting, since almost every function in STROBE has the same runtime.
+This will produce a summary with plots in `target/criterion/report/index.html`. These won't be very interesting, since almost every function in STROBE has the same runtime.
 
 License
 -------
