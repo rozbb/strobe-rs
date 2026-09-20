@@ -14,8 +14,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serialize_secret_state")]
 use serde_big_array::BigArray;
 
-/// This is a wrapper around 200-byte buffer that's always 8-byte aligned to make pointers to it
-/// safely convertible to a pointer to [u64; 25] (since u64 words must be 8-byte aligned)
+/// This is a wrapper around 200-byte buffer
 #[derive(Clone, Zeroize)]
 #[cfg_attr(feature = "serialize_secret_state", derive(Serialize, Deserialize))]
 pub(crate) struct AlignedKeccakState(

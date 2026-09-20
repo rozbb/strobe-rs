@@ -279,7 +279,7 @@ impl Strobe {
         }
     }
 
-    /// Identical as [`Strobe::duplex_mut`], but where `data` is read-only
+    /// Identical to [`Strobe::duplex_mut`], but where `data` is read-only
     fn duplex_const(&mut self, data: &[u8], mut f: impl FnMut(&mut u8, u8)) {
         let mut data_idx = 0;
         while data_idx < data.len() {
